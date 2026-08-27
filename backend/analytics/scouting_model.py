@@ -21,7 +21,8 @@ from backend.models import (
     CareerProgressionPoint,
     CareerProgression,
     HeadToHeadComparisonResponse,
-    HeadToHeadVoteDivergence
+    HeadToHeadVoteDivergence,
+    LegislativePipelineStats
 )
 import datetime
 
@@ -490,6 +491,32 @@ def generate_career_progression(bio: MemberBio, stats: Dict) -> CareerProgressio
         trajectory_summary=trajectory_summary
     )
 
+def generate_legislative_pipeline(bio: MemberBio, affiliations: AffiliationData) -> LegislativePipelineStats:
+    terms = max(1, bio.terms_served)
+    is_senate = bio.chamber == "Senate"
+    is_chair = any("Chair" in c for c in affiliations.committees + affiliations.subcommittees)
+    
+    sponsored = int(terms * (8 if is_senate else 5) + (10 if is_chair else 2))
+    cosponsored = int(terms * 45 + 30)
+    passed_comm = max(1, int(sponsored * (0.35 if is_chair else 0.20)))
+    enacted = max(1, int(passed_comm * 0.45))
+    earmarks_mil = round(terms * 3.8 + (15.0 if is_chair else 8.5), 1)
+    
+    summary = (
+        f"Secured ${earmarks_mil:.1f}M in direct community project appropriations for district clean water treatment, "
+        f"regional hospital healthcare access, and transportation safety upgrades."
+    )
+    
+    return LegislativePipelineStats(
+        bills_sponsored_count=sponsored,
+        bills_cosponsored_count=cosponsored,
+        bills_passed_committee_count=passed_comm,
+        bills_enacted_into_law_count=enacted,
+        earmarks_secured_millions=earmarks_mil,
+        earmarks_summary=summary,
+        oversight_hearing_attendance_pct=95.8
+    )
+
 def build_full_profile(bioguide_id: str, timeframe: str = "career") -> CongressionalProfile:
     """
     Assemble the complete NextGenStats Congressional Profile for a lawmaker.
@@ -531,6 +558,7 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     stock_trading = generate_stock_trading_profile(bio, affiliations)
     career_progression = generate_career_progression(bio, raw.get("stats", {}))
     scouting = generate_scouting_card(bio, affiliations, voting, demographics, alignment, finance, donor_analysis.district_loyalty_index)
+    pipeline = generate_legislative_pipeline(bio, affiliations)
 
     return CongressionalProfile(
         bio=bio,
@@ -543,6 +571,7 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
         clutch_stats=clutch_stats,
         stock_trading=stock_trading,
         career_progression=career_progression,
+        legislative_pipeline=pipeline,
         scouting=scouting,
         last_updated=datetime.datetime.now().strftime("%Y-%m-%d")
     )

@@ -1,5 +1,5 @@
-"""
-Data models and schemas for Congressional NextGenStats & Draft Profiles
+﻿"""
+Data models and schemas for Congressional Civic Analytics & Lawmaker Dossiers
 """
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
@@ -66,6 +66,69 @@ class VotingRecordSummary(BaseModel):
     category_breakdown: Dict[str, CategoryVoteStat] = Field(default_factory=dict)
     recent_votes: List[NotableVote] = Field(default_factory=list)
 
+# -------------------------------------------------------------
+# DETAILED BILL & POLICY CATEGORY DRILL-DOWN SCHEMAS
+# -------------------------------------------------------------
+class BillDetailRecord(BaseModel):
+    bill_number: str # e.g. "H.R. 4366" or "S. 2226"
+    bill_title: str
+    category: str
+    date: str
+    result: str # "PASSED (219-210)", "FAILED", "ENACTED"
+    member_vote: str # "YES", "NO", "ABSTAIN"
+    party_majority_vote: str # "YES" or "NO"
+    is_party_split: bool = False
+    plain_english_summary: str # 2-3 sentence clear summary of what was inside the bill
+    key_provisions: List[str] = Field(default_factory=list) # Bullet points of major clauses
+    district_and_sector_impact: str
+    significance_level: str = "LANDMARK" # "LANDMARK", "HIGH_IMPACT", "ROUTINE"
+
+class PolicyCategoryDeepDive(BaseModel):
+    category_name: str
+    member_bioguide_id: str
+    member_name: str
+    timeframe: str
+    total_bills_analyzed: int
+    member_support_pct: float
+    votes_yes: int
+    votes_no: int
+    votes_abstained: int
+    category_overview: str
+    bills: List[BillDetailRecord] = Field(default_factory=list)
+
+# -------------------------------------------------------------
+# DISTRICT DEMOGRAPHIC & POLICY CORRELATION SCHEMAS
+# -------------------------------------------------------------
+class DistrictDemographicMetricDetail(BaseModel):
+    metric_name: str # e.g. "SNAP / Food Assistance"
+    district_value: str # e.g. "22.4% Households"
+    state_avg: str # e.g. "13.2%"
+    national_avg: str # e.g. "12.1%"
+    variance_status: str # "SIGNIFICANTLY_ABOVE_NATIONAL", "AVERAGE", "BELOW_NATIONAL"
+    lawmaker_voting_stance: str # "ACTIVE_PROTECTION", "FISCAL_REDUCTION", "MIXED"
+    constituent_impact_analysis: str # How the member's votes directly serve or conflict with this metric
+    correlated_roll_calls: List[str] = Field(default_factory=list)
+
+class DistrictDeepDiveDossier(BaseModel):
+    district_code: str
+    state_name: str
+    representative_name: str
+    partisan_lean_pvi: str
+    population: int
+    median_household_income: int
+    poverty_rate_pct: float
+    snap_assistance_pct: float
+    foreign_born_pct: float
+    medicaid_enrolled_pct: float
+    uninsured_rate_pct: float
+    college_educated_pct: float
+    urban_pct: float
+    rural_pct: float
+    veteran_pct: float
+    top_employment_sectors: Dict[str, float] = Field(default_factory=dict)
+    metric_correlations: List[DistrictDemographicMetricDetail] = Field(default_factory=list)
+    overall_district_alignment_verdict: str
+
 class ConstituentDemographics(BaseModel):
     district_code: str # e.g. "CA-12" or "TX-Sen"
     state_name: str
@@ -123,6 +186,9 @@ class DonorVsConstituentAnalysis(BaseModel):
     conflict_sectors: List[SectorTugOfWar] = Field(default_factory=list)
     narrative_verdict: str
 
+# -------------------------------------------------------------
+# CIVIC PERFORMANCE INDICATORS & EFFECTIVENESS RATINGS
+# -------------------------------------------------------------
 class CombineMeasurables(BaseModel):
     party_loyalty: float # 0 - 100
     bipartisanship_velocity: float # 0 - 100
@@ -132,14 +198,14 @@ class CombineMeasurables(BaseModel):
     constituent_sync: float # 0 - 100
     legislative_motor: float # 0 - 100 (bills sponsored / cosponsored volume)
     district_loyalty: float = 80.0 # vs Donors (0 - 100)
-    clutch_rating: float = 88.0 # 4th Quarter Clutch Index (0 - 100)
+    clutch_rating: float = 88.0 # High-Pressure Floor Resilience Index (0 - 100)
 
 class ClutchVotingStats(BaseModel):
     clutch_rating: float # 0 - 100
     nailbiter_votes_analyzed: int
     clutch_party_loyalty_pct: float
     maverick_defection_pct: float
-    clutch_archetype: str # "Party Anchor / Ice in the Veins", "Floor Maverick / Pressure Defector", "District-First Stabilizer"
+    clutch_archetype: str # "Party Anchor / High Cohesion", "Floor Maverick / Tactical Defector", "District-First Stabilizer"
     clutch_verdict: str
 
 class FlaggedStockTrade(BaseModel):
@@ -174,11 +240,23 @@ class CareerProgression(BaseModel):
     timeline: List[CareerProgressionPoint] = Field(default_factory=list)
     trajectory_summary: str
 
+# -------------------------------------------------------------
+# LEGISLATIVE PIPELINE & EARMARKS OUTPUT SCHEMAS
+# -------------------------------------------------------------
+class LegislativePipelineStats(BaseModel):
+    bills_sponsored_count: int = 14
+    bills_cosponsored_count: int = 168
+    bills_passed_committee_count: int = 6
+    bills_enacted_into_law_count: int = 3
+    earmarks_secured_millions: float = 24.5
+    earmarks_summary: str = "Secured community project funding for clean water treatment facilities, community healthcare clinics, and STEM education laboratories."
+    oversight_hearing_attendance_pct: float = 94.0
+
 class ScoutingCard(BaseModel):
-    draft_grade: str # "A+", "A", "A-", "B+", "B", "C+", etc.
-    draft_archetype: str # e.g. "Partisan Playmaker", "Floor Maverick", "District Pragmatist"
+    draft_grade: str # Legislative Effectiveness Rating: "A+", "A", "A-", "B+", "B", "C+", etc.
+    draft_archetype: str # Governance Archetype: e.g. "Senior Caucus Leader", "Floor Maverick", "District Pragmatist"
     archetype_description: str
-    pro_comparison_name: str # e.g. "Joe Manchin (Legacy Comp)"
+    pro_comparison_name: str # Historical & Policy Alignment Comp
     pro_comparison_desc: str
     combine_measurables: CombineMeasurables
     strengths: List[str] = Field(default_factory=list)
@@ -196,10 +274,11 @@ class CongressionalProfile(BaseModel):
     clutch_stats: ClutchVotingStats
     stock_trading: StockTradingProfile
     career_progression: CareerProgression
+    legislative_pipeline: LegislativePipelineStats = Field(default_factory=LegislativePipelineStats)
     scouting: ScoutingCard
     last_updated: str
 
-# Head-to-Head Tale of the Tape Schema
+# Head-to-Head Policy & Voting Matchup Schemas
 class HeadToHeadVoteDivergence(BaseModel):
     bill_number: Optional[str]
     bill_title: str
@@ -233,8 +312,8 @@ class LeaderboardEntry(BaseModel):
     score: float
     score_formatted: str
     rank: int
-    draft_grade: str
-    draft_archetype: str
+    draft_grade: str # Legislative Rating
+    draft_archetype: str # Governance Archetype
 
 class CategoryLeaderboard(BaseModel):
     category_id: str
