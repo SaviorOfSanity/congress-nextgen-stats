@@ -1,0 +1,19 @@
+﻿services:
+  congress-nextgen-stats:
+    build: .
+    container_name: congress-nextgen-stats
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist generated videos and cards on the host
+      - ./output:/app/output
+      # Optional: persist scraped/cached roster data
+      - ./data:/app/data
+    environment:
+      - PORT=8000
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

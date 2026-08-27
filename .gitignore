@@ -1,0 +1,25 @@
+﻿# Python virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary test / audio files
+*.mp3
+*.wav
+
+# Output media / rendered cards & videos
+output/
+!output/.gitkeep
+
+# OS / IDE artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
