@@ -289,6 +289,22 @@ class CivicEthicsConflictIndex(BaseModel):
     clean_indicators: List[str] = Field(default_factory=list)
     ethics_narrative: str = "Zero individual stock trades disclosed. Fully compliant with STOCK Act standards."
 
+class RhetoricVsRealityAudit(BaseModel):
+    topic: str
+    campaign_statement: str
+    actual_roll_call_vote: str
+    bill_cited: str
+    fidelity_status: str # "CONSISTENT RECORD", "SPLIT / REVERSED STANCE", "EVOLVING RECORD"
+    analysis_takeaway: str
+
+class ChallengerMatchup(BaseModel):
+    election_cycle: str = "2026 Congressional Elections"
+    challenger_name: str
+    challenger_party: str
+    challenger_background: str
+    cash_on_hand_formatted: str
+    key_policy_contrast: str
+
 class CongressionalProfile(BaseModel):
     bio: MemberBio
     affiliations: AffiliationData
@@ -303,8 +319,41 @@ class CongressionalProfile(BaseModel):
     legislative_pipeline: LegislativePipelineStats = Field(default_factory=LegislativePipelineStats)
     wealth_pl: CongressionalWealthPL = Field(default_factory=CongressionalWealthPL)
     ethics_risk: CivicEthicsConflictIndex = Field(default_factory=CivicEthicsConflictIndex)
+    rhetoric_audits: List[RhetoricVsRealityAudit] = Field(default_factory=list)
+    challenger_preview: Optional[ChallengerMatchup] = None
     scouting: ScoutingCard
     last_updated: str
+
+# -------------------------------------------------------------
+# VOTER-CANDIDATE VALUE MATCHMAKER SCHEMAS
+# -------------------------------------------------------------
+class VoterIssueChoice(BaseModel):
+    issue_id: str # "drugs", "guns", "clean_energy", "corporate_tax", "border", "spending", "crypto"
+    stance: str # "SUPPORT", "OPPOSE", "NEUTRAL"
+
+class VoterMatchmakerRequest(BaseModel):
+    user_state: Optional[str] = "ALL"
+    user_chamber: Optional[str] = "ALL"
+    choices: List[VoterIssueChoice] = Field(default_factory=list)
+
+class CandidateMatchItem(BaseModel):
+    bioguide_id: str
+    full_name: str
+    party: str
+    chamber: str
+    state: str
+    district: Optional[int] = None
+    image_url: Optional[str] = None
+    match_percentage: float
+    grade: str
+    archetype: str
+    aligned_issues: List[str] = Field(default_factory=list)
+    divergent_issues: List[str] = Field(default_factory=list)
+
+class VoterMatchmakerResponse(BaseModel):
+    total_candidates_analyzed: int
+    top_matches: List[CandidateMatchItem] = Field(default_factory=list)
+    bottom_matches: List[CandidateMatchItem] = Field(default_factory=list)
 
 # Head-to-Head Policy & Voting Matchup Schemas
 class HeadToHeadVoteDivergence(BaseModel):

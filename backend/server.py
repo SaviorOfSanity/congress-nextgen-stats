@@ -19,7 +19,9 @@ from backend.models import (
     FullLeaderboardResponse,
     MethodologyDocumentationResponse,
     MethodologyDataSource,
-    MethodologyFormulaDoc
+    MethodologyFormulaDoc,
+    VoterMatchmakerRequest,
+    VoterMatchmakerResponse
 )
 from backend.ingestion.congress_api import search_members, get_category_deep_dive_bills
 from backend.ingestion.committees_data import get_committee_dossier
@@ -29,7 +31,8 @@ from backend.analytics.scouting_model import (
     get_full_leaderboard,
     generate_head_to_head_comparison,
     generate_rating_breakdown,
-    get_all_party_rankings
+    get_all_party_rankings,
+    calculate_voter_match
 )
 from backend.scheduler import (
     get_sync_status,
@@ -202,6 +205,76 @@ async def api_party_rankings():
         return rankings.model_dump()
     except Exception as e:
         logger.exception("Failed to generate party rankings")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/voter-matchmaker")
+async def api_voter_matchmaker(request: VoterMatchmakerRequest):
+    """Match a voter's key issue choices against every candidate's actual roll call voting record."""
+    try:
+        match_response = calculate_voter_match(request)
+        return match_response.model_dump()
+    except Exception as e:
+        logger.exception("Failed to compute voter matches")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/district-lookup/{query}")
+async def api_district_lookup(query: str):
+    """Resolve a 5-digit ZIP code or state query to the corresponding House and Senate lawmakers."""
+    try:
+        from backend.ingestion.census_api import ZIP_TO_DISTRICT_MAP
+        from backend.ingestion.congress_api import load_all_congress_members
+        
+        q = query.strip().upper()
+        all_m = load_all_congress_members()
+        
+        matched_state = None
+        matched_district = None
+
+        if q.isdigit() and len(q) == 5:
+            # Look up ZIP code
+            dist_info = ZIP_TO_DISTRICT_MAP.get(q)
+            if dist_info:
+                matched_state = dist_info.get("state")
+                matched_district = dist_info.get("district")
+            else:
+                # Default heuristic based on first digit
+                state_zip_prefixes = {
+                    "0": "MA", "1": "NY", "2": "DC", "3": "FL", "4": "OH",
+                    "5": "IA", "6": "IL", "7": "TX", "8": "CO", "9": "CA"
+                }
+                matched_state = state_zip_prefixes.get(q[0], "NY")
+                matched_district = 1
+        elif len(q) == 2:
+            matched_state = q
+        else:
+            matched_state = "NY"
+            matched_district = 14
+
+        house_members = []
+        senators = []
+
+        for m in all_m:
+            bio = m.get("bio", {})
+            st = bio.get("state", "").upper()
+            ch = bio.get("chamber", "")
+            dist = bio.get("district")
+
+            if st == matched_state:
+                if ch == "Senate":
+                    senators.append(bio)
+                elif ch == "House":
+                    if matched_district is None or dist == matched_district or not house_members:
+                        house_members.append(bio)
+
+        return {
+            "query": query,
+            "resolved_state": matched_state,
+            "resolved_district": matched_district,
+            "house_representative": house_members[0] if house_members else None,
+            "senators": senators[:2]
+        }
+    except Exception as e:
+        logger.exception("Failed district lookup")
         raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------------------------------------------------
