@@ -25,7 +25,9 @@ from backend.models import (
     LegislativePipelineStats,
     RatingScorePillar,
     RatingBreakdownDossier,
-    DonorVsConstituentAnalysis
+    DonorVsConstituentAnalysis,
+    PartyRankingEntry,
+    PartyRankingsResponse
 )
 import datetime
 
@@ -992,3 +994,53 @@ def get_full_leaderboard() -> FullLeaderboardResponse:
         policy_categories=policy_leaderboards
     )
     return _CACHED_LEADERBOARD
+
+def get_all_party_rankings() -> PartyRankingsResponse:
+    global _CACHED_PROFILES
+    if _CACHED_PROFILES is None:
+        get_full_leaderboard()
+
+    entries = []
+    for p in (_CACHED_PROFILES or []):
+        comb = p.scouting.combine_measurables
+        pipe = p.legislative_pipeline
+        
+        total_score, grade, tier, _, _, _ = calculate_five_pillar_score(
+            bio=p.bio,
+            affiliations=p.affiliations,
+            voting=p.voting,
+            alignment=p.alignment,
+            finance=p.finance,
+            pipeline=pipe,
+            district_loyalty=p.donor_influence.district_loyalty_index
+        )
+        
+        entries.append(PartyRankingEntry(
+            bioguide_id=p.bio.bioguide_id,
+            full_name=p.bio.full_name,
+            party=p.bio.party,
+            chamber=p.bio.chamber,
+            state=p.bio.state,
+            district=p.bio.district,
+            image_url=p.bio.image_url,
+            leadership_role=p.bio.leadership_role,
+            overall_score=total_score,
+            letter_grade=grade,
+            tier_label=tier,
+            archetype=p.scouting.draft_archetype,
+            bills_sponsored=pipe.bills_sponsored_count,
+            bills_enacted=pipe.bills_enacted_into_law_count,
+            earmarks_millions=pipe.earmarks_secured_millions,
+            constituent_sync=comb.constituent_sync,
+            floor_attendance=comb.floor_attendance,
+            bipartisanship_velocity=comb.bipartisanship_velocity,
+            grassroots_pct=p.finance.small_individual_pct,
+            pac_dependency=p.finance.pac_contributions_pct,
+            clutch_rating=comb.clutch_rating,
+            stock_conflict_index=p.stock_trading.committee_conflict_index
+        ))
+        
+    return PartyRankingsResponse(
+        total_members_count=len(entries),
+        members=entries
+    )

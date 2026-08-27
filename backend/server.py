@@ -28,7 +28,8 @@ from backend.analytics.scouting_model import (
     build_full_profile,
     get_full_leaderboard,
     generate_head_to_head_comparison,
-    generate_rating_breakdown
+    generate_rating_breakdown,
+    get_all_party_rankings
 )
 from backend.scheduler import (
     get_sync_status,
@@ -191,6 +192,16 @@ async def api_leaderboard():
         return leaderboards.model_dump()
     except Exception as e:
         logger.exception("Failed to generate leaderboards")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/party-rankings")
+async def api_party_rankings():
+    """Retrieve full roster of lawmakers with 5-pillar scores, output pipeline, and civic metrics for interactive party filtering & sorting."""
+    try:
+        rankings = get_all_party_rankings()
+        return rankings.model_dump()
+    except Exception as e:
+        logger.exception("Failed to generate party rankings")
         raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------------------------------------------------

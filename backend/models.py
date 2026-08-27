@@ -417,3 +417,34 @@ class MethodologyDocumentationResponse(BaseModel):
     scoring_formulas: List[MethodologyFormulaDoc] = Field(default_factory=list)
     bias_mitigation_policy: str
     open_source_audit_link: str
+
+# -------------------------------------------------------------
+# PARTY RANKINGS & LEGISLATIVE BENCHMARKING SCHEMAS
+# -------------------------------------------------------------
+class PartyRankingEntry(BaseModel):
+    bioguide_id: str
+    full_name: str
+    party: str
+    chamber: str
+    state: str
+    district: Optional[int] = None
+    image_url: Optional[str] = None
+    leadership_role: Optional[str] = None
+    overall_score: float # 0 to 100
+    letter_grade: str
+    tier_label: str
+    archetype: str
+    bills_sponsored: int
+    bills_enacted: int
+    earmarks_millions: float
+    constituent_sync: float
+    floor_attendance: float
+    bipartisanship_velocity: float
+    grassroots_pct: float
+    pac_dependency: float
+    clutch_rating: float
+    stock_conflict_index: float
+
+class PartyRankingsResponse(BaseModel):
+    total_members_count: int
+    members: List[PartyRankingEntry] = Field(default_factory=list)
