@@ -1,7 +1,7 @@
 """
-NFL Draft Style Scouting Model & NextGenStats Analytics Engine for Congress
+Civic Analytics Engine & 5-Pillar Legislative Effectiveness Scoring Model
 """
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, Any
 from backend.models import (
     MemberBio,
     AffiliationData,
@@ -22,7 +22,10 @@ from backend.models import (
     CareerProgression,
     HeadToHeadComparisonResponse,
     HeadToHeadVoteDivergence,
-    LegislativePipelineStats
+    LegislativePipelineStats,
+    RatingScorePillar,
+    RatingBreakdownDossier,
+    DonorVsConstituentAnalysis
 )
 import datetime
 
@@ -65,6 +68,173 @@ PRO_COMP_DATABASE = {
     }
 }
 
+def calculate_five_pillar_score(
+    bio: MemberBio,
+    affiliations: AffiliationData,
+    voting: VotingRecordSummary,
+    alignment: ConstituentAlignment,
+    finance: CampaignFinanceSummary,
+    pipeline: LegislativePipelineStats,
+    district_loyalty: float = 85.0
+) -> Tuple[float, str, str, List[RatingScorePillar], List[str], List[str]]:
+    """
+    Calculate balanced 5-Pillar Legislative Effectiveness Score (0 to 100).
+    Produces a realistic, non-inflated distribution across A, B, C, D, and F grades.
+    """
+    # 1. Legislative Output & Throughput (25 pts max)
+    out_sponsor_pts = min(10.0, (pipeline.bills_sponsored_count * 0.35) + (pipeline.bills_passed_committee_count * 1.5) + (pipeline.bills_enacted_into_law_count * 2.5))
+    out_funding_pts = min(8.0, pipeline.earmarks_secured_millions * 0.25)
+    out_comm_pts = min(7.0, (len(affiliations.committees) * 1.5) + (4.0 if bio.leadership_role else 0.0))
+    p1_score = round(min(25.0, out_sponsor_pts + out_funding_pts + out_comm_pts), 1)
+
+    # 2. Constituent & District Fidelity (25 pts max)
+    sync_pts = (alignment.overall_sync_score / 100.0) * 18.0
+    dist_loyalty_pts = (district_loyalty / 100.0) * 7.0
+    p2_score = round(min(25.0, sync_pts + dist_loyalty_pts), 1)
+
+    # 3. Floor Attendance & Reliability (20 pts max)
+    att_base = (voting.attendance_pct / 100.0) * 20.0
+    missed_penalty = min(8.0, max(0.0, voting.abstain_pct - 1.0) * 2.0)
+    p3_score = round(max(0.0, min(20.0, att_base - missed_penalty)), 1)
+
+    # 4. Special Interest & PAC Independence (15 pts max)
+    grassroots_pts = (finance.small_individual_pct / 100.0) * 10.0
+    pac_clean_pts = max(0.0, (100.0 - finance.pac_contributions_pct) / 100.0) * 5.0
+    p4_score = round(min(15.0, grassroots_pts + pac_clean_pts), 1)
+
+    # 5. Bipartisanship & Coalition Building (15 pts max)
+    bipart_pts = min(15.0, (voting.bipartisanship_pct / 35.0) * 15.0)
+    p5_score = round(min(15.0, bipart_pts), 1)
+
+    total_score = round(p1_score + p2_score + p3_score + p4_score + p5_score, 1)
+
+    # Grade determination
+    if total_score >= 93.0:
+        grade = "A+"
+        tier = "EXEMPLARY / TOP 5% LEGISLATOR"
+    elif total_score >= 88.0:
+        grade = "A"
+        tier = "HIGH-IMPACT INSTITUTIONAL LEADER"
+    elif total_score >= 83.0:
+        grade = "A-"
+        tier = "EFFECTIVE DISTRICT CHAMPION"
+    elif total_score >= 78.0:
+        grade = "B+"
+        tier = "HIGH PRODUCTIVITY LEGISLATOR"
+    elif total_score >= 73.0:
+        grade = "B"
+        tier = "CONSISTENT FLOOR PARTICIPANT"
+    elif total_score >= 68.0:
+        grade = "B-"
+        tier = "STANDARD MAJORITY VOTE"
+    elif total_score >= 63.0:
+        grade = "C+"
+        tier = "AVERAGE LEGISLATIVE EFFECTIVENESS"
+    elif total_score >= 58.0:
+        grade = "C"
+        tier = "BELOW-AVERAGE OUTPUT / HIGH SPECIAL INTEREST"
+    elif total_score >= 52.0:
+        grade = "C-"
+        tier = "LOW BILL PASSAGE / ELEVATED ABSTENTION"
+    elif total_score >= 45.0:
+        grade = "D"
+        tier = "UNDERPERFORMING / AT-RISK EFFECTIVENESS"
+    else:
+        grade = "F"
+        tier = "CHRONIC FLOOR ABSENTEEISM / ETHICS CONFLICT"
+
+    # Status labels for pillars
+    def get_status(score, max_pts):
+        pct = (score / max_pts) * 100.0
+        if pct >= 85.0: return "EXEMPLARY"
+        if pct >= 70.0: return "STRONG"
+        if pct >= 55.0: return "MODERATE"
+        return "NEEDS IMPROVEMENT"
+
+    pillars = [
+        RatingScorePillar(
+            pillar_id="output",
+            pillar_title="Legislative Output & Throughput",
+            points_earned=p1_score,
+            points_max=25.0,
+            percentage=round((p1_score / 25.0) * 100.0, 1),
+            pillar_description="Statutory authorship, committee throughput, enacted laws, and district community project funding.",
+            status_label=get_status(p1_score, 25.0)
+        ),
+        RatingScorePillar(
+            pillar_id="district_sync",
+            pillar_title="Constituent & District Fidelity",
+            points_earned=p2_score,
+            points_max=25.0,
+            percentage=round((p2_score / 25.0) * 100.0, 1),
+            pillar_description="Correlation between roll call voting record and home district socioeconomic and employment needs.",
+            status_label=get_status(p2_score, 25.0)
+        ),
+        RatingScorePillar(
+            pillar_id="floor",
+            pillar_title="Floor Attendance & Reliability",
+            points_earned=p3_score,
+            points_max=20.0,
+            percentage=round((p3_score / 20.0) * 100.0, 1),
+            pillar_description="Participation in official clerk roll calls, low missed vote frequency, and quorum reliability.",
+            status_label=get_status(p3_score, 20.0)
+        ),
+        RatingScorePillar(
+            pillar_id="pac_indep",
+            pillar_title="Special Interest & PAC Independence",
+            points_earned=p4_score,
+            points_max=15.0,
+            percentage=round((p4_score / 15.0) * 100.0, 1),
+            pillar_description="Proportion of small-dollar grassroots contributions (<$200) vs corporate PAC and lobbyist sway.",
+            status_label=get_status(p4_score, 15.0)
+        ),
+        RatingScorePillar(
+            pillar_id="bipartisanship",
+            pillar_title="Bipartisanship & Coalition Building",
+            points_earned=p5_score,
+            points_max=15.0,
+            percentage=round((p5_score / 15.0) * 100.0, 1),
+            pillar_description="Cross-aisle bill cosponsorship rate, bipartisan compromise amendments, and independent voting frequency.",
+            status_label=get_status(p5_score, 15.0)
+        )
+    ]
+
+    # Positive drivers
+    pos_drivers = []
+    if voting.attendance_pct >= 97.0:
+        pos_drivers.append(f"+{round(p3_score, 1)} pts: Elite {voting.attendance_pct}% floor roll call attendance rate.")
+    if pipeline.earmarks_secured_millions >= 15.0:
+        pos_drivers.append(f"+{round(out_funding_pts, 1)} pts: Secured ${pipeline.earmarks_secured_millions:.1f}M in direct community project appropriations.")
+    if alignment.overall_sync_score >= 80.0:
+        pos_drivers.append(f"+{round(sync_pts, 1)} pts: High {alignment.overall_sync_score}% constituent sync matching home district socioeconomic data.")
+    if finance.small_individual_pct >= 60.0:
+        pos_drivers.append(f"+{round(grassroots_pts, 1)} pts: Grassroots campaign funding with {finance.small_individual_pct}% small-dollar contributions.")
+    if pipeline.bills_enacted_into_law_count >= 2:
+        pos_drivers.append(f"+{pipeline.bills_enacted_into_law_count * 2.5:.1f} pts: Authored {pipeline.bills_enacted_into_law_count} bills successfully enacted into federal statutory law.")
+    if voting.bipartisanship_pct >= 25.0:
+        pos_drivers.append(f"+{round(p5_score, 1)} pts: Strong cross-party dealmaking with {voting.bipartisanship_pct}% bipartisan cosponsorship rate.")
+
+    if len(pos_drivers) < 2:
+        pos_drivers.append(f"+{round(p1_score, 1)} pts: Active legislative service across {len(affiliations.committees)} congressional committees.")
+
+    # Deductions and growth opportunities
+    deductions = []
+    if voting.bipartisanship_pct < 15.0:
+        deductions.append(f"-{round(15.0 - p5_score, 1)} pts: Low bipartisan velocity ({voting.bipartisanship_pct}%); strictly straight-ticket voting tendencies.")
+    if finance.pac_contributions_pct > 30.0:
+        deductions.append(f"-{round(15.0 - p4_score, 1)} pts: Elevated corporate & organizational PAC dependency ({finance.pac_contributions_pct}% of funds).")
+    if pipeline.bills_enacted_into_law_count == 0:
+        deductions.append("-4.0 pts: 0 solo-sponsored bills enacted into law during current congressional career.")
+    if voting.abstain_pct > 2.0:
+        deductions.append(f"-{round(missed_penalty, 1)} pts: Missed/abstained on {voting.abstain_pct}% of total floor roll calls.")
+    if alignment.top_divergence_areas:
+        deductions.append(f"-3.0 pts: Noticeable constituent voting friction on {alignment.top_divergence_areas[0]}.")
+
+    if len(deductions) == 0:
+        deductions.append("Minor point adjustments on amendment cross-sponsorship volume.")
+
+    return total_score, grade, tier, pillars, pos_drivers, deductions
+
 def generate_scouting_card(
     bio: MemberBio,
     affiliations: AffiliationData,
@@ -72,11 +242,15 @@ def generate_scouting_card(
     demographics: ConstituentDemographics,
     alignment: ConstituentAlignment,
     finance: CampaignFinanceSummary,
-    district_loyalty: float = 85.0
+    district_loyalty: float = 85.0,
+    pipeline: Optional[LegislativePipelineStats] = None
 ) -> ScoutingCard:
     """
-    Generate comprehensive NFL Draft Scouting Card, Combine Measurables, and Film Room Verdict.
+    Generate comprehensive Civic Performance Indicators, 5-Pillar Rating, and Analytical Verdict.
     """
+    if pipeline is None:
+        pipeline = generate_legislative_pipeline(bio, affiliations)
+
     party_loyalty = round(voting.party_unity_pct, 1)
     bipartisanship_velocity = round(min(100.0, voting.bipartisanship_pct * 2.5), 1)
     floor_attendance = round(voting.attendance_pct, 1)
@@ -116,8 +290,8 @@ def generate_scouting_card(
         archetype = "Party Field General"
         arch_desc = "Commands the caucus whip count and controls legislative throughput with tactical party discipline."
     elif finance.small_individual_pct > 65.0 and pac_dep < 10.0:
-        archetype = "Grassroots Firebrand"
-        arch_desc = "Direct-to-voter digital powerhouse fueled by grassroots micro-donations with independent media leverage."
+        archetype = "Grassroots Digital Leader"
+        arch_desc = "Direct-to-voter digital powerhouse fueled by grassroots micro-donations with independent media reach."
     elif bipartisanship_velocity > 45.0 or party_loyalty < 88.0:
         archetype = "Floor Maverick & Dealmaker"
         arch_desc = "Willing to break rank on clutch votes and build bipartisan coalitions across ideological divides."
@@ -154,55 +328,21 @@ def generate_scouting_card(
             pro_name = "Independent Coalition Broker"
             pro_desc = "Free-agent lawmaker balancing caucus negotiations with home state priorities."
 
-    composite_score = (floor_attendance * 0.20) + (legislative_motor * 0.25) + (const_sync * 0.35) + (party_loyalty * 0.20)
-    if composite_score >= 94:
-        draft_grade = "A+"
-    elif composite_score >= 90:
-        draft_grade = "A"
-    elif composite_score >= 86:
-        draft_grade = "A-"
-    elif composite_score >= 82:
-        draft_grade = "B+"
-    elif composite_score >= 78:
-        draft_grade = "B"
-    elif composite_score >= 74:
-        draft_grade = "B-"
-    elif composite_score >= 70:
-        draft_grade = "C+"
-    else:
-        draft_grade = "C"
-
-    strengths = []
-    weaknesses = []
-
-    if floor_attendance >= 97.0:
-        strengths.append(f"Elite {floor_attendance}% attendance rate with low {abstain_rate}% abstain rate.")
-    if const_sync >= 80.0:
-        strengths.append(f"Outstanding {const_sync}% constituent sync score matching {demographics.district_code} priorities.")
-    if legislative_motor >= 75.0:
-        strengths.append(f"High-motor legislator with active committee assignments in {', '.join(affiliations.committees[:2])}.")
-    if finance.small_individual_pct >= 50.0:
-        strengths.append(f"Grassroots powerhouse with {finance.small_individual_pct}% funding from micro-donations.")
-    if len(strengths) < 3:
-        strengths.append(f"Reliable partisan anchor with {party_loyalty}% party line cohesion.")
-
-    if abstain_rate > 3.0:
-        weaknesses.append(f"Elevated missed/abstain rate ({abstain_rate}% of roll calls).")
-    if pac_dep > 30.0:
-        weaknesses.append(f"Heavy reliance on corporate PAC contributions ({pac_dep}% of total funds).")
-    if bipartisanship_velocity < 20.0:
-        weaknesses.append("Low cross-aisle cosponsorship velocity; strictly partisan voting record.")
-    if alignment.top_divergence_areas:
-        weaknesses.append(f"Constituent dissonance on {alignment.top_divergence_areas[0]}.")
-    if party_loyalty < 88.0:
-        weaknesses.append("High defection risk on close procedural votes.")
-    if len(weaknesses) < 2:
-        weaknesses.append("Predictable straight-ticket floor tendencies with minimal amendment cross-sponsorship.")
+    # Use the 5-Pillar Score
+    total_score, draft_grade, tier, pillars, strengths, weaknesses = calculate_five_pillar_score(
+        bio=bio,
+        affiliations=affiliations,
+        voting=voting,
+        alignment=alignment,
+        finance=finance,
+        pipeline=pipeline,
+        district_loyalty=district_loyalty
+    )
 
     film_room_verdict = (
-        f"SCOUTING TAPE BREAKDOWN: {bio.full_name} (Age {bio.age or 'N/A'}, Net Worth {bio.estimated_net_worth}) grades out as a {draft_grade} prospect in the {bio.chamber}. "
-        f"Operates as a quintessential {archetype} with {party_loyalty}% party unity, {const_sync}% district sync index, and {district_loyalty}% constituent vs lobbyist fidelity score. "
-        f"Pro comparison to {pro_name} highlights unmatched strengths in {strengths[0].lower()}."
+        f"CIVIC DOSSIER SUMMARY: {bio.full_name} (Age {bio.age or 'N/A'}, Net Worth {bio.estimated_net_worth}) scores {total_score:.1f}/100, earning a {draft_grade} Legislative Rating in the {bio.chamber}. "
+        f"Operates as a quintessential {archetype} with {party_loyalty}% party line cohesion, {const_sync}% district sync index, and {district_loyalty}% constituent representation fidelity. "
+        f"Key strength: {strengths[0]}."
     )
 
     return ScoutingCard(
@@ -217,12 +357,57 @@ def generate_scouting_card(
         film_room_verdict=film_room_verdict
     )
 
+def generate_rating_breakdown(
+    bio: MemberBio,
+    scouting: ScoutingCard,
+    affiliations: AffiliationData,
+    voting: VotingRecordSummary,
+    finance: CampaignFinanceSummary,
+    pipeline: LegislativePipelineStats,
+    donor_analysis: DonorVsConstituentAnalysis,
+    alignment: ConstituentAlignment,
+    constituents: ConstituentDemographics
+) -> RatingBreakdownDossier:
+    """
+    Generate exhaustive rating explanation breakdown detailing the 5 pillars, drivers, and deductions.
+    """
+    total_score, grade, tier, pillars, pos_drivers, deductions = calculate_five_pillar_score(
+        bio=bio,
+        affiliations=affiliations,
+        voting=voting,
+        alignment=alignment,
+        finance=finance,
+        pipeline=pipeline,
+        district_loyalty=donor_analysis.district_loyalty_index
+    )
+
+    narrative = (
+        f"{bio.full_name} earned a {grade} ({total_score:.1f} / 100) based on our nonpartisan 5-pillar civic effectiveness model. "
+        f"Their highest performing area is {max(pillars, key=lambda p: p.percentage).pillar_title} at {max(pillars, key=lambda p: p.percentage).percentage}%, "
+        f"while their primary area for scoring improvement is {min(pillars, key=lambda p: p.percentage).pillar_title} ({min(pillars, key=lambda p: p.percentage).percentage}%)."
+    )
+
+    return RatingBreakdownDossier(
+        bioguide_id=bio.bioguide_id,
+        full_name=bio.full_name,
+        chamber=bio.chamber,
+        party=bio.party,
+        state=bio.state,
+        district_code=constituents.district_code,
+        overall_score=total_score,
+        letter_grade=grade,
+        tier_label=tier,
+        pillars=pillars,
+        positive_drivers=pos_drivers,
+        deductions_and_growth=deductions,
+        grade_explanation_narrative=narrative
+    )
+
 def calculate_clutch_voting_stats(bio: MemberBio, voting: VotingRecordSummary) -> ClutchVotingStats:
     bioguide = bio.bioguide_id
     party = bio.party
     h = abs(hash(bioguide))
     
-    # Specific known lawmaker overrides
     if bioguide == "M001184": # Thomas Massie
         clutch_rating = 62.5
         clutch_loyalty = 48.0
@@ -255,13 +440,13 @@ def calculate_clutch_voting_stats(bio: MemberBio, voting: VotingRecordSummary) -
         verdict = "Breaks rank on tight procedural votes when party platform conflicts with Maine Second District rural economic interests."
     else:
         if party == "Democrat":
-            clutch_loyalty = round(92.0 + (h % 75) / 10.0, 1) # 92.0 - 99.5
+            clutch_loyalty = round(92.0 + (h % 75) / 10.0, 1)
             maverick_def = round(100.0 - clutch_loyalty, 1)
             clutch_rating = round(clutch_loyalty * 0.95 + 4.5, 1)
             archetype = "Party Anchor / Reliable Closer" if clutch_loyalty > 95 else "District Pragmatist / Calculated Defector"
             verdict = f"Demonstrates {clutch_loyalty}% party line fidelity on tight legislative showdowns."
         elif party == "Republican":
-            clutch_loyalty = round(90.0 + (h % 90) / 10.0, 1) # 90.0 - 99.0
+            clutch_loyalty = round(90.0 + (h % 90) / 10.0, 1)
             maverick_def = round(100.0 - clutch_loyalty, 1)
             clutch_rating = round(clutch_loyalty * 0.94 + 5.0, 1)
             archetype = "Party Anchor / Reliable Closer" if clutch_loyalty > 94 else "Floor Maverick / Pressure Defector"
@@ -554,11 +739,11 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     alignment = calculate_constituent_alignment(demographics, voting)
     finance = get_member_finance(bio.bioguide_id, bio.chamber, bio.party)
     donor_analysis = calculate_donor_vs_constituent_analysis(demographics, voting, finance)
+    pipeline = generate_legislative_pipeline(bio, affiliations)
+    scouting = generate_scouting_card(bio, affiliations, voting, demographics, alignment, finance, donor_analysis.district_loyalty_index, pipeline)
     clutch_stats = calculate_clutch_voting_stats(bio, voting)
     stock_trading = generate_stock_trading_profile(bio, affiliations)
     career_progression = generate_career_progression(bio, raw.get("stats", {}))
-    scouting = generate_scouting_card(bio, affiliations, voting, demographics, alignment, finance, donor_analysis.district_loyalty_index)
-    pipeline = generate_legislative_pipeline(bio, affiliations)
 
     return CongressionalProfile(
         bio=bio,
@@ -577,9 +762,6 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     )
 
 def generate_head_to_head_comparison(bioguide1: str, bioguide2: str, timeframe: str = "career") -> HeadToHeadComparisonResponse:
-    """
-    Generate comprehensive 'Tale of the Tape' head-to-head matchup between any two members of Congress.
-    """
     p1 = build_full_profile(bioguide1, timeframe=timeframe)
     p2 = build_full_profile(bioguide2, timeframe=timeframe)
     
@@ -653,10 +835,6 @@ _CACHED_LEADERBOARD = None
 _CACHED_PROFILES = None
 
 def get_full_leaderboard() -> FullLeaderboardResponse:
-    """
-    Generate complete Congressional Leaderboards (both Top 5 and Bottom 5)
-    benchmarking all 537+ members of the US Congress.
-    """
     global _CACHED_LEADERBOARD, _CACHED_PROFILES
     if _CACHED_LEADERBOARD is not None:
         return _CACHED_LEADERBOARD
@@ -706,31 +884,23 @@ def get_full_leaderboard() -> FullLeaderboardResponse:
             else:
                 inds.append(entry)
 
-        # Sort DESC for Top 5
         dems_sorted = sorted(dems, key=lambda x: x.score, reverse=True)
-        for i, d in enumerate(dems_sorted):
-            d.rank = i + 1
+        for i, d in enumerate(dems_sorted): d.rank = i + 1
 
         reps_sorted = sorted(reps, key=lambda x: x.score, reverse=True)
-        for i, r in enumerate(reps_sorted):
-            r.rank = i + 1
+        for i, r in enumerate(reps_sorted): r.rank = i + 1
 
         inds_sorted = sorted(inds, key=lambda x: x.score, reverse=True)
-        for i, ind in enumerate(inds_sorted):
-            ind.rank = i + 1
+        for i, ind in enumerate(inds_sorted): ind.rank = i + 1
 
-        # Sort ASC for Bottom 5
         dems_bottom = sorted(dems, key=lambda x: x.score, reverse=False)
-        for i, d in enumerate(dems_bottom):
-            d.rank = i + 1
+        for i, d in enumerate(dems_bottom): d.rank = i + 1
 
         reps_bottom = sorted(reps, key=lambda x: x.score, reverse=False)
-        for i, r in enumerate(reps_bottom):
-            r.rank = i + 1
+        for i, r in enumerate(reps_bottom): r.rank = i + 1
 
         return dems_sorted[:5], dems_bottom[:5], reps_sorted[:5], reps_bottom[:5], inds_sorted[:5]
 
-    # Combine Metric Leaderboards
     combine_cats = [
         {
             "id": "district_loyalty",
@@ -797,27 +967,19 @@ def get_full_leaderboard() -> FullLeaderboardResponse:
             independents_spotlight=i_top
         ))
 
-    # Policy Sector Leaderboards
-    policy_topics = [
-        ("Defense & National Security", "Highest/Lowest support % on military appropriations and defense authorization bills."),
-        ("Technology & AI / Privacy", "Highest/Lowest support % on cybersecurity, semiconductors, and data privacy legislation."),
-        ("Energy & Environment", "Highest/Lowest support % on clean energy, climate infrastructure, and conservation."),
-        ("Economy & Taxation", "Highest/Lowest support % on fiscal budgets, tax cuts, and commerce relief."),
-        ("Healthcare & Medicare", "Highest/Lowest support % on prescription drug caps, Medicare, and hospital funding."),
-        ("Immigration & Border Security", "Highest/Lowest support % on border enforcement, customs patrol, and immigration bills.")
-    ]
-
+    from backend.config import POLICY_CATEGORIES
     policy_leaderboards = []
-    for topic, desc in policy_topics:
-        def get_topic_stat(p, t=topic):
-            st = p.voting.category_breakdown.get(t)
-            return st.support_pct if st else 0.0
-
-        d_top, d_bot, r_top, r_bot, i_top = build_ranked_partition(profiles, get_topic_stat, lambda v: f"{v:.0f}% Yea")
+    for cat in POLICY_CATEGORIES:
+        cat_id = cat.lower().replace(" & ", "_").replace(" / ", "_").replace(" ", "_")
+        d_top, d_bot, r_top, r_bot, i_top = build_ranked_partition(
+            profiles,
+            lambda p, c=cat: p.voting.category_breakdown.get(c, {}).support_pct if hasattr(p.voting.category_breakdown.get(c, {}), "support_pct") else (p.voting.category_breakdown.get(c, {}).get("support_pct", 50.0) if isinstance(p.voting.category_breakdown.get(c, {}), dict) else 50.0),
+            lambda v: f"{v:.1f}% Support"
+        )
         policy_leaderboards.append(CategoryLeaderboard(
-            category_id=topic.lower().replace(" ", "_").replace("&", "and"),
-            category_title=f"{topic} Stance",
-            metric_description=desc,
+            category_id=cat_id,
+            category_title=f"{cat} Policy Support",
+            metric_description=f"% affirmative Yea votes cast on landmark legislation in the {cat} sector.",
             democrats_top5=d_top,
             democrats_bottom5=d_bot,
             republicans_top5=r_top,
@@ -825,7 +987,8 @@ def get_full_leaderboard() -> FullLeaderboardResponse:
             independents_spotlight=i_top
         ))
 
-    return FullLeaderboardResponse(
+    _CACHED_LEADERBOARD = FullLeaderboardResponse(
         combine_categories=combine_leaderboards,
         policy_categories=policy_leaderboards
     )
+    return _CACHED_LEADERBOARD

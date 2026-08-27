@@ -1,4 +1,4 @@
-﻿"""
+"""
 Data models and schemas for Congressional Civic Analytics & Lawmaker Dossiers
 """
 from typing import List, Dict, Optional, Any
@@ -328,3 +328,92 @@ class CategoryLeaderboard(BaseModel):
 class FullLeaderboardResponse(BaseModel):
     combine_categories: List[CategoryLeaderboard] = Field(default_factory=list)
     policy_categories: List[CategoryLeaderboard] = Field(default_factory=list)
+
+# -------------------------------------------------------------
+# LEGISLATIVE RATING EXPLANATION & 5-PILLAR BREAKDOWN SCHEMAS
+# -------------------------------------------------------------
+class RatingScorePillar(BaseModel):
+    pillar_id: str # e.g. "output", "district_sync", "floor", "pac_indep", "bipartisanship"
+    pillar_title: str
+    points_earned: float # e.g. 18.5
+    points_max: float # e.g. 25.0
+    percentage: float # e.g. 74.0%
+    pillar_description: str
+    status_label: str # "EXEMPLARY", "STRONG", "AVERAGE", "UNDERPERFORMING"
+
+class RatingBreakdownDossier(BaseModel):
+    bioguide_id: str
+    full_name: str
+    chamber: str
+    party: str
+    state: str
+    district_code: str
+    overall_score: float # 0 to 100
+    letter_grade: str # A+, A, A-, B+, B, B-, C+, C, C-, D, F
+    tier_label: str # "TOP 5% LEGISLATOR", "EFFECTIVE LEGISLATOR", "STANDARD PARTICIPANT", "UNDERPERFORMING", "AT-RISK"
+    pillars: List[RatingScorePillar] = Field(default_factory=list)
+    positive_drivers: List[str] = Field(default_factory=list)
+    deductions_and_growth: List[str] = Field(default_factory=list)
+    grade_explanation_narrative: str
+
+# -------------------------------------------------------------
+# COMMITTEE & CAUCUS DOSSIER & ROSTER SCHEMAS
+# -------------------------------------------------------------
+class CommitteeMemberEntry(BaseModel):
+    bioguide_id: str
+    full_name: str
+    party: str
+    state: str
+    district: Optional[int] = None
+    chamber: str
+    role: str # "Chair", "Ranking Member", "Vice Chair", "Member"
+    image_url: Optional[str] = None
+    subcommittees: List[str] = Field(default_factory=list)
+
+class CommitteeSubcommitteeDetail(BaseModel):
+    name: str
+    chair_name: Optional[str] = None
+    ranking_member_name: Optional[str] = None
+    focus_area: str
+
+class CommitteeDossier(BaseModel):
+    committee_code: str
+    committee_name: str
+    chamber: str # "House", "Senate", "Joint", "Caucus"
+    type: str # "Standing", "Select", "Joint", "Congressional Caucus"
+    jurisdiction_overview: str
+    key_agencies_supervised: List[str] = Field(default_factory=list)
+    subcommittees: List[CommitteeSubcommitteeDetail] = Field(default_factory=list)
+    chair: Optional[CommitteeMemberEntry] = None
+    ranking_member: Optional[CommitteeMemberEntry] = None
+    majority_members: List[CommitteeMemberEntry] = Field(default_factory=list)
+    minority_members: List[CommitteeMemberEntry] = Field(default_factory=list)
+    active_legislative_priorities: List[str] = Field(default_factory=list)
+    total_members_count: int = 0
+
+# -------------------------------------------------------------
+# METHODOLOGY & OPEN CIVIC DATA CITATION SCHEMAS
+# -------------------------------------------------------------
+class MethodologyDataSource(BaseModel):
+    name: str
+    provider: str
+    endpoint_or_source: str
+    update_frequency: str
+    description: str
+    verification_url: str
+
+class MethodologyFormulaDoc(BaseModel):
+    metric_name: str
+    scale: str
+    inputs: List[str]
+    formula_text: str
+    rationale: str
+
+class MethodologyDocumentationResponse(BaseModel):
+    title: str = "Congress Civic Analytics: Open Intelligence & Methodology Specification"
+    version: str = "2.4.0 (2026 Edition)"
+    mission_statement: str
+    data_sources: List[MethodologyDataSource] = Field(default_factory=list)
+    scoring_formulas: List[MethodologyFormulaDoc] = Field(default_factory=list)
+    bias_mitigation_policy: str
+    open_source_audit_link: str
