@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Congress Civic Analytics | Legislative Performance & Lawmaker Dossiers</title>
+  <title>Congress Civic Analytics | Lawmaker Dossiers, Leaderboards & Financial Accountability</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -58,11 +58,6 @@
       color: #f1f5f9;
     }
     
-    .glow-dem { box-shadow: 0 0 25px -5px rgba(37, 99, 235, 0.35); }
-    .glow-rep { box-shadow: 0 0 25px -5px rgba(220, 38, 38, 0.35); }
-    .glow-ind { box-shadow: 0 0 25px -5px rgba(5, 150, 105, 0.35); }
-    .glow-gold { box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.35); }
-    
     .clickable-card {
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
@@ -74,9 +69,23 @@
     }
 
     .modal-backdrop {
-      background-color: rgba(3, 7, 18, 0.85);
+      background-color: rgba(3, 7, 18, 0.88);
       backdrop-filter: blur(8px);
-      transition: opacity 0.2s ease-in-out;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      overflow-y: auto;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 1.5rem 1rem;
+    }
+
+    .modal-box {
+      width: 100%;
+      margin-top: 1rem;
+      margin-bottom: 2rem;
+      position: relative;
     }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -103,6 +112,22 @@
       color: #0f172a;
       transform: scale(1.15);
     }
+    
+    .nav-tab-active {
+      background-color: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+      box-shadow: 0 4px 20px -2px rgba(14, 165, 233, 0.4);
+    }
+    .nav-tab-inactive {
+      background-color: rgba(30, 41, 59, 0.8);
+      color: #94a3b8;
+      border-color: #334155;
+    }
+    .nav-tab-inactive:hover {
+      background-color: #334155;
+      color: #f1f5f9;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
@@ -121,7 +146,7 @@
     <div class="flex items-center gap-3">
       <button onclick="openMethodologyModal()" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1">
         <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
-        <span>Methodology & Open Sources</span>
+        <span>Methodology & Data Sources</span>
       </button>
       <button id="manualSyncBtn" onclick="triggerManualSync()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-medium flex items-center gap-1.5 transition-colors">
         <i data-lucide="refresh-cw" class="w-3 h-3 text-cyan-400"></i>
@@ -131,11 +156,11 @@
   </div>
 
   <!-- NAVIGATION HEADER -->
-  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
+  <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
       
-      <!-- Brand Logo -->
-      <div class="flex items-center gap-3 cursor-pointer" onclick="loadMember('O000172')">
+      <!-- Brand Logo (Click takes to Leaderboards / Discovery) -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="switchMainTab('leaderboard')">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
           <i data-lucide="landmark" class="w-5 h-5 text-white"></i>
         </div>
@@ -144,18 +169,18 @@
             <span class="font-black text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">CONGRESS</span>
             <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-cyan-950 text-cyan-400 border border-cyan-800 uppercase tracking-wider">CIVIC ANALYTICS</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-medium -mt-0.5">Nonpartisan Lawmaker Dossiers & Voting Intelligence</p>
+          <p class="text-[11px] text-slate-400 font-medium -mt-0.5">Nonpartisan Lawmaker Dossiers & Wealth Accountability</p>
         </div>
       </div>
 
       <!-- Center Live Search Bar -->
-      <div class="flex-1 max-w-lg relative">
+      <div class="flex-1 max-w-md relative">
         <div class="relative">
           <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
           <input 
             type="text" 
             id="searchInput" 
-            placeholder="Search lawmakers by name, state (NY, TX, CA), or district..." 
+            placeholder="Search all 535 lawmakers (name, NY-14, Senate)..." 
             class="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl pl-10 pr-10 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all font-medium"
             autocomplete="off"
           />
@@ -168,30 +193,184 @@
         <div id="searchResults" class="hidden absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 max-h-80 overflow-y-auto"></div>
       </div>
 
-      <!-- Right Navigation Actions -->
-      <div class="flex items-center gap-2">
-        <button onclick="openPartyRanksModal()" class="px-3 py-2 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/80 text-xs font-bold text-indigo-300 flex items-center gap-1.5 transition-all shadow-sm">
-          <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-400"></i>
-          <span class="hidden sm:inline">Party Rankings</span>
+      <!-- Main Navigation View Switcher (Leaderboard is Default Homepage) -->
+      <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <button id="tabNavLeaderboard" onclick="switchMainTab('leaderboard')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-active">
+          <i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Leaderboard & Ranks</span>
         </button>
-        <button onclick="openLeaderboardModal()" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 transition-all">
-          <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i>
-          <span class="hidden sm:inline">Leaderboards</span>
+        <button id="tabNavProfile" onclick="switchMainTab('profile')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-inactive">
+          <i data-lucide="user-check" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>Lawmaker Dossier</span>
         </button>
-        <button onclick="openComparisonModal()" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 transition-all">
-          <i data-lucide="split" class="w-4 h-4 text-cyan-400"></i>
-          <span class="hidden sm:inline">Head-to-Head</span>
-        </button>
-        <button onclick="downloadLawmakerCard()" class="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-cyan-500/20">
-          <i data-lucide="download" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">Export PNG</span>
+        <button id="tabNavCompare" onclick="switchMainTab('compare')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-inactive">
+          <i data-lucide="split" class="w-3.5 h-3.5 text-purple-400"></i>
+          <span>Head-to-Head</span>
         </button>
       </div>
+
     </div>
   </header>
 
-  <!-- MAIN APPLICATION CONTENT -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <!-- ============================================================== -->
+  <!-- VIEW 1: LEADERBOARDS & PARTY RANKINGS (DEFAULT HOMEPAGE)        -->
+  <!-- ============================================================== -->
+  <main id="viewLeaderboard" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Top Hero Banner for Discovery -->
+    <div class="bg-gradient-to-r from-blue-950/40 via-slate-900 to-purple-950/40 border border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-xl">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded text-[10px] font-black bg-amber-950 text-amber-400 border border-amber-800 uppercase tracking-wider">
+              118th CONGRESS POWER BENCHMARKS
+            </span>
+            <span class="text-xs text-slate-400">537 Lawmakers Tracked</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Congressional Power Rankings & Leaderboards</h1>
+          <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
+            Nonpartisan rankings measuring institutional output, constituent fidelity, campaign funding independence, and congressional wealth trajectories.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="switchMainTab('profile')" class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 transition-all">
+            <i data-lucide="user" class="w-4 h-4"></i>
+            <span>Inspect Spotlight Lawmaker &rarr;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER & SORT TOOLBAR -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-cyan-400"></i>
+          <span>Filter & Rank Lawmakers</span>
+        </h2>
+        <span class="text-xs text-slate-400 font-mono">Showing <strong id="rankCountDisplay" class="text-white">0</strong> Lawmakers</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <!-- Party Filter -->
+        <div>
+          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Party</label>
+          <select id="mainRankFilterParty" onchange="filterAndRenderRankings()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-medium">
+            <option value="ALL">All Parties (Democrats, Republicans, Independents)</option>
+            <option value="Democrat">Democrats Only</option>
+            <option value="Republican">Republicans Only</option>
+            <option value="Independent">Independents Only</option>
+          </select>
+        </div>
+
+        <!-- Chamber Filter -->
+        <div>
+          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Chamber</label>
+          <select id="mainRankFilterChamber" onchange="filterAndRenderRankings()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-medium">
+            <option value="ALL">All Chambers (House & Senate)</option>
+            <option value="House">U.S. House of Representatives</option>
+            <option value="Senate">U.S. Senate</option>
+          </select>
+        </div>
+
+        <!-- Metric Sort Dropdown -->
+        <div>
+          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Sort By Metric</label>
+          <select id="mainRankSortMetric" onchange="filterAndRenderRankings()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-bold text-cyan-400">
+            <option value="overall_score">🌟 Overall 5-Pillar Score (0-100 / Grade)</option>
+            <option value="floor_attendance">🗳️ Floor Roll Call Attendance %</option>
+            <option value="constituent_sync">🎯 Constituent Demographic Sync %</option>
+            <option value="bipartisanship_velocity">🤝 Bipartisanship Velocity %</option>
+            <option value="grassroots_pct">💜 Grassroots Small-Dollar Funding % (&lt;$200)</option>
+            <option value="bills_enacted">🏛️ Bills Enacted Into Federal Law</option>
+            <option value="bills_sponsored">📜 Total Bills Sponsored</option>
+            <option value="earmarks_millions">💰 Community Earmarks Secured ($M)</option>
+            <option value="wealth_growth_multiple">📈 Net Worth Growth Multiple in Office</option>
+            <option value="ethics_risk_score">🛡️ Ethics & Conflict Risk Score (Lowest to Highest)</option>
+          </select>
+        </div>
+
+        <!-- Search Lawmaker -->
+        <div>
+          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Quick Search</label>
+          <input type="text" id="mainRankSearchInput" oninput="filterAndRenderRankings()" placeholder="Filter by name, NY, CA, TX..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-medium" />
+        </div>
+      </div>
+    </div>
+
+    <!-- RANKINGS ROSTER LIST / GRID -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+      <div class="flex items-center justify-between text-xs text-slate-400 px-2 border-b border-slate-800 pb-2">
+        <span class="font-bold text-slate-300 uppercase tracking-wider">Rank & Lawmaker</span>
+        <span id="metricHeaderTitle" class="font-bold text-cyan-400 uppercase tracking-wider font-mono">Overall Score</span>
+      </div>
+
+      <div id="mainRankingsContainer" class="space-y-2.5 max-h-[600px] overflow-y-auto pr-1"></div>
+    </div>
+
+    <!-- TOP PARTY CATEGORY SPOTLIGHTS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- Top Democrats -->
+      <div class="bg-slate-900 border border-blue-900/60 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 class="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="shield" class="w-4 h-4"></i>
+            <span>Top Rated Democrats</span>
+          </h3>
+          <span class="text-xs text-slate-500 font-mono">5-Pillar Score</span>
+        </div>
+        <div id="spotlightDemList" class="space-y-2"></div>
+      </div>
+
+      <!-- Top Republicans -->
+      <div class="bg-slate-900 border border-red-900/60 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 class="text-sm font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="shield" class="w-4 h-4"></i>
+            <span>Top Rated Republicans</span>
+          </h3>
+          <span class="text-xs text-slate-500 font-mono">5-Pillar Score</span>
+        </div>
+        <div id="spotlightRepList" class="space-y-2"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ============================================================== -->
+  <!-- VIEW 2: LAWMAKER PROFILE DOSSIER                               -->
+  <!-- ============================================================== -->
+  <main id="viewProfile" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- TIMEFRAME & CAREER TERM SELECTOR BAR -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i data-lucide="clock" class="w-4 h-4 text-cyan-400"></i>
+          <span>Legislative Timeframe:</span>
+        </span>
+        <select id="timeframeSelector" onchange="onTimeframeChange()" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-bold focus:outline-none focus:border-cyan-500">
+          <option value="career" selected>Career Total (Full Tenure in Congress)</option>
+          <option value="118">118th Congress (2023 - 2026)</option>
+          <option value="117">117th Congress (2021 - 2022)</option>
+          <option value="116">116th Congress (2019 - 2020)</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="switchMainTab('leaderboard')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 flex items-center gap-1.5">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+          <span>Back to Rankings</span>
+        </button>
+        <button onclick="downloadLawmakerCard()" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-500/20">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Export Dossier PNG</span>
+        </button>
+      </div>
+    </div>
 
     <!-- HERO PROFILE HEADER CARD -->
     <div id="lawmakerHeroCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-xl">
@@ -274,10 +453,80 @@
       </div>
     </div>
 
-    <!-- MAIN GRID 2-COLUMN LAYOUT -->
+    <!-- NEW ROW: CONGRESSIONAL WEALTH P&L & CIVIC INTEGRITY / ETHICS RISK -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Congressional Wealth Gain / P&L Card -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+            <span>Congressional Wealth P&L & Trajectory</span>
+          </h2>
+          <span class="info-btn" onclick="openInfoModal('wealth_pl')">ℹ</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Starting Net Worth</div>
+            <div id="plStartingNW" class="text-base font-black text-slate-200 mt-1">$50k</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Current Net Worth</div>
+            <div id="plCurrentNW" class="text-base font-black text-emerald-400 mt-1">$125k</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Net Worth Gain</div>
+            <div id="plNetWorthGain" class="text-base font-black text-cyan-400 mt-1">+$75k</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Growth Multiple</div>
+            <div id="plGrowthMultiple" class="text-base font-black text-amber-400 mt-1">2.5x</div>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+          <div class="flex justify-between text-xs text-slate-400">
+            <span>Cumulative Congressional Salary Earned:</span>
+            <strong id="plSalaryEarned" class="text-slate-200 font-mono">$1.39M</strong>
+          </div>
+          <p id="plAssessmentText" class="text-xs text-slate-300 leading-relaxed"></p>
+        </div>
+      </div>
+
+      <!-- Civic Ethics & Conflict of Interest Risk Rating -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="shield-alert" class="w-4 h-4 text-cyan-400"></i>
+            <span>Ethics & Conflict Risk Index</span>
+          </h2>
+          <span class="info-btn" onclick="openInfoModal('ethics_risk')">ℹ</span>
+        </div>
+
+        <div class="flex items-center justify-between bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Risk Level Assessment</div>
+            <div id="ethicsRiskLabel" class="text-sm font-black text-emerald-400 mt-0.5">LOW ETHICS RISK / CLEAN</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Conflict Score</div>
+            <div id="ethicsRiskScore" class="text-2xl font-black text-white font-mono">12.4 <span class="text-xs text-slate-500 font-normal">/ 100</span></div>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ethics & Conflict Factors:</div>
+          <ul id="ethicsFactorsList" class="text-xs text-slate-300 space-y-1"></ul>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MAIN PROFILE GRID: 2 COLUMNS -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-      <!-- LEFT COLUMN: PERFORMANCE INDICATORS (5 cols) -->
+      <!-- LEFT COLUMN: PERFORMANCE INDICATORS & DEMOGRAPHICS (5 cols) -->
       <div class="lg:col-span-5 space-y-6">
 
         <!-- CIVIC PERFORMANCE INDICATORS -->
@@ -287,14 +536,10 @@
               <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
               <span>Civic Performance Indicators</span>
             </h2>
-            <button onclick="openInfoModal('civic_indicators')" class="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1">
-              <span class="info-btn">ℹ</span>
-              <span>Guide</span>
-            </button>
+            <span class="info-btn" onclick="openInfoModal('civic_indicators')">ℹ</span>
           </div>
 
           <div class="space-y-3.5">
-            <!-- Floor Attendance -->
             <div>
               <div class="flex justify-between text-xs font-semibold mb-1">
                 <span class="text-slate-400 flex items-center gap-1">
@@ -308,7 +553,6 @@
               </div>
             </div>
 
-            <!-- Constituent Sync Index -->
             <div>
               <div class="flex justify-between text-xs font-semibold mb-1">
                 <span class="text-slate-400 flex items-center gap-1">
@@ -322,7 +566,6 @@
               </div>
             </div>
 
-            <!-- Party Line Cohesion -->
             <div>
               <div class="flex justify-between text-xs font-semibold mb-1">
                 <span class="text-slate-400 flex items-center gap-1">
@@ -336,7 +579,6 @@
               </div>
             </div>
 
-            <!-- Bipartisanship Velocity -->
             <div>
               <div class="flex justify-between text-xs font-semibold mb-1">
                 <span class="text-slate-400 flex items-center gap-1">
@@ -350,7 +592,6 @@
               </div>
             </div>
 
-            <!-- Grassroots Micro-Donations -->
             <div>
               <div class="flex justify-between text-xs font-semibold mb-1">
                 <span class="text-slate-400 flex items-center gap-1">
@@ -411,7 +652,7 @@
           </div>
 
           <p class="text-xs text-slate-400 leading-relaxed">
-            Click to inspect detailed Census ACS socioeconomic deciles (SNAP %, Medicaid %, Immigrant %, Median Income) correlated directly against roll call votes.
+            Click to inspect detailed Census ACS socioeconomic deciles correlated directly against roll call votes.
           </p>
 
           <div class="grid grid-cols-3 gap-2 text-center text-xs">
@@ -432,8 +673,54 @@
 
       </div>
 
-      <!-- RIGHT COLUMN: POLICY VERTICALS & RECENT BILLS (7 cols) -->
+      <!-- RIGHT COLUMN: POLICY ARCHIVE, TUG-OF-WAR, CAREER TIMELINE (7 cols) -->
       <div class="lg:col-span-7 space-y-6">
+
+        <!-- CONSTITUENTS VS DONORS TUG-OF-WAR MATRIX -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="scale" class="w-4 h-4 text-purple-400"></i>
+                <span>Constituents vs Special Interest Donors</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Sector-by-sector alignment: where campaign money comes from vs district needs</p>
+            </div>
+            <span class="info-btn" onclick="openInfoModal('tug_of_war')">ℹ</span>
+          </div>
+
+          <div class="space-y-2" id="donorTugOfWarList"></div>
+        </div>
+
+        <!-- YEAR-OVER-YEAR CAREER & WEALTH PROGRESSION TIMELINE -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-cyan-400"></i>
+                <span>Year-over-Year Career & Wealth Progression</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Term-by-term asset evolution and bipartisanship velocity</p>
+            </div>
+            <span class="info-btn" onclick="openInfoModal('progression')">ℹ</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead class="text-[10px] text-slate-500 uppercase bg-slate-950">
+                <tr>
+                  <th class="p-2 rounded-l-lg">Era / Term</th>
+                  <th class="p-2">Year</th>
+                  <th class="p-2">Est. Net Worth</th>
+                  <th class="p-2">Bipartisanship</th>
+                  <th class="p-2">Party Unity</th>
+                  <th class="p-2 rounded-r-lg">Ideological Lean</th>
+                </tr>
+              </thead>
+              <tbody id="careerTimelineTableBody" class="divide-y divide-slate-800 text-slate-300"></tbody>
+            </table>
+          </div>
+        </div>
 
         <!-- POLICY VERTICALS DRILL-DOWN GRID -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
@@ -443,54 +730,12 @@
                 <i data-lucide="pie-chart" class="w-4 h-4 text-cyan-400"></i>
                 <span>Voting History & Policy Verticals</span>
               </h2>
-              <p class="text-xs text-slate-400 mt-0.5">Click any category card below to view plain-English bill breakdowns and key provisions.</p>
+              <p class="text-xs text-slate-400 mt-0.5">Click any category card below to view plain-English bill breakdowns.</p>
             </div>
             <span class="info-btn" onclick="openInfoModal('policy_verticals')">ℹ</span>
           </div>
 
           <div id="policyCategoriesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-        </div>
-
-        <!-- RECENT NOTABLE ROLL CALLS -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i>
-              <span>Recent Landmark Roll Calls</span>
-            </h2>
-            <span class="text-xs text-slate-400 font-mono">118th Congress Record</span>
-          </div>
-
-          <div id="recentVotesList" class="space-y-2.5"></div>
-        </div>
-
-        <!-- SPECIAL INTEREST & STOCK TRADING DISCLOSURES -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="trending-up" class="w-4 h-4 text-amber-400"></i>
-              <span>STOCK Act & Donor Disclosures</span>
-            </h2>
-            <span class="info-btn" onclick="openInfoModal('stock_act')">ℹ</span>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
-              <div class="text-[11px] font-semibold text-slate-400 uppercase flex items-center justify-between">
-                <span>STOCK Act Disclosures</span>
-                <span id="stockConflictStatus" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">Clean</span>
-              </div>
-              <div id="stockTradesSummary" class="text-xs text-slate-300 font-medium mt-2 leading-relaxed"></div>
-            </div>
-
-            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
-              <div class="text-[11px] font-semibold text-slate-400 uppercase flex items-center justify-between">
-                <span>Constituent vs PAC Sway</span>
-                <span id="donorInfluenceVerdict" class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800">District First</span>
-              </div>
-              <div id="donorSwaySummary" class="text-xs text-slate-300 font-medium mt-2 leading-relaxed"></div>
-            </div>
-          </div>
         </div>
 
       </div>
@@ -499,7 +744,63 @@
 
   </main>
 
-  <!-- FOOTER CITATION -->
+  <!-- ============================================================== -->
+  <!-- VIEW 3: HEAD-TO-HEAD MATCHUP VIEW                              -->
+  <!-- ============================================================== -->
+  <main id="viewCompare" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-700 flex items-center justify-center text-cyan-400 flex-shrink-0">
+            <i data-lucide="split" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-black text-white">Head-to-Head Lawmaker Matchup</h2>
+            <p class="text-xs text-slate-400 font-medium mt-0.5">Compare policy alignment, radar stats, and roll call vote divergences</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lawmaker Selectors -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+        <div>
+          <label class="block font-bold text-blue-400 uppercase tracking-wider text-[10px] mb-1">Lawmaker #1</label>
+          <select id="compareSelect1" onchange="runHeadToHeadCompare()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-bold focus:outline-none focus:border-blue-500"></select>
+        </div>
+        <div>
+          <label class="block font-bold text-red-400 uppercase tracking-wider text-[10px] mb-1">Lawmaker #2</label>
+          <select id="compareSelect2" onchange="runHeadToHeadCompare()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-bold focus:outline-none focus:border-red-500"></select>
+        </div>
+      </div>
+
+      <!-- Matchup Banner -->
+      <div class="bg-gradient-to-r from-blue-950/60 via-slate-950 to-red-950/60 p-5 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+        <div>
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Voting Record Agreement Rate</div>
+          <div id="compareAgreementScore" class="text-3xl font-black text-cyan-400 font-mono mt-0.5">--% Match</div>
+        </div>
+        <p id="compareVerdictText" class="text-xs text-slate-300 max-w-lg leading-relaxed"></p>
+      </div>
+
+      <!-- Radar Comparison Chart -->
+      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">7-Axis Civic Performance Radar</h3>
+        <div class="h-72 sm:h-96 w-full relative flex items-center justify-center">
+          <canvas id="compareRadarChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Divergent Votes Table -->
+      <div class="space-y-2">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Divergent Roll Call Votes (Voted Opposite)</h3>
+        <div id="compareDivergentList" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
   <footer class="bg-slate-950 border-t border-slate-800 mt-12 py-8 text-xs text-slate-400">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div>
@@ -520,193 +821,24 @@
   </footer>
 
   <!-- ============================================================== -->
-  <!-- MODAL: PARTY RANKINGS & LEGISLATIVE BENCHMARKING (#partyRanksModal) -->
+  <!-- ALL POPUP MODALS WITH FIXED TOP CUTOFF & ESC KEY LISTENERS     -->
   <!-- ============================================================== -->
-  <div id="partyRanksModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full p-6 shadow-2xl relative space-y-5 my-8">
-      
-      <button onclick="closeModal('partyRanksModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
 
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+  <!-- Rating Breakdown Modal -->
+  <div id="ratingModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'ratingModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl modal-box p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-xl bg-indigo-950 border border-indigo-700 flex items-center justify-center text-indigo-400 flex-shrink-0">
-            <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
-          </div>
+          <div id="modalRatingBadge" class="w-14 h-14 rounded-2xl bg-cyan-600/20 border border-cyan-500 flex items-center justify-center text-2xl font-black text-cyan-400">A-</div>
           <div>
-            <h2 class="text-xl font-black text-white">Party Rankings & Legislative Benchmarks</h2>
-            <p class="text-xs text-slate-400 font-medium mt-0.5">Filter and rank members of Congress by any civic performance rating</p>
+            <h2 id="modalRatingMemberName" class="text-lg font-bold text-white">Alexandria Ocasio-Cortez</h2>
+            <div class="flex items-center gap-2">
+              <span id="modalRatingScoreText" class="px-2 py-0.2 rounded text-xs font-mono font-bold bg-slate-800 text-slate-300">83.8 / 100</span>
+              <p id="modalRatingTierLabel" class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">EFFECTIVE DISTRICT CHAMPION</p>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- Controls & Filter Toolbar -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
-        
-        <!-- Party Filter -->
-        <div>
-          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Party</label>
-          <select id="rankFilterParty" onchange="applyPartyRankingsFilter()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500">
-            <option value="ALL">All Parties</option>
-            <option value="Democrat">Democrats Only</option>
-            <option value="Republican">Republicans Only</option>
-            <option value="Independent">Independents Only</option>
-          </select>
-        </div>
-
-        <!-- Chamber Filter -->
-        <div>
-          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Chamber</label>
-          <select id="rankFilterChamber" onchange="applyPartyRankingsFilter()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500">
-            <option value="ALL">All Chambers</option>
-            <option value="House">U.S. House</option>
-            <option value="Senate">U.S. Senate</option>
-          </select>
-        </div>
-
-        <!-- Sort By Metric -->
-        <div>
-          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Rank By Metric</label>
-          <select id="rankSortMetric" onchange="applyPartyRankingsFilter()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500">
-            <option value="overall_score">Overall 5-Pillar Score (0-100)</option>
-            <option value="floor_attendance">Floor Attendance %</option>
-            <option value="constituent_sync">Constituent Sync %</option>
-            <option value="bipartisanship_velocity">Bipartisanship Velocity %</option>
-            <option value="grassroots_pct">Grassroots Funding % (<$200)</option>
-            <option value="bills_sponsored">Bills Sponsored</option>
-            <option value="bills_enacted">Bills Enacted into Law</option>
-            <option value="earmarks_millions">Community Earmarks ($M)</option>
-            <option value="clutch_rating">4th-Quarter Clutch Resilience</option>
-          </select>
-        </div>
-
-        <!-- Search in Rankings -->
-        <div>
-          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Search Lawmaker</label>
-          <input type="text" id="rankSearchInput" oninput="applyPartyRankingsFilter()" placeholder="Name or state..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500" />
-        </div>
-
-      </div>
-
-      <!-- Rankings Results Container -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between text-xs text-slate-400 px-2">
-          <span>Showing <strong id="rankingsCount" class="text-white">0</strong> Lawmakers</span>
-          <span id="rankSortLabel" class="text-cyan-400 font-mono font-semibold">Ranked by Overall Score</span>
-        </div>
-        <div id="partyRankingsGrid" class="space-y-2 max-h-[460px] overflow-y-auto pr-1"></div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ============================================================== -->
-  <!-- MODAL: LEADERBOARDS (#leaderboardModal)                         -->
-  <!-- ============================================================== -->
-  <div id="leaderboardModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full p-6 shadow-2xl relative space-y-6 my-8">
-      
-      <button onclick="closeModal('leaderboardModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
-
-      <!-- Header -->
-      <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
-        <div class="w-12 h-12 rounded-xl bg-amber-950 border border-amber-700 flex items-center justify-center text-amber-400 flex-shrink-0">
-          <i data-lucide="trophy" class="w-6 h-6"></i>
-        </div>
-        <div>
-          <h2 class="text-xl font-black text-white">Congressional Category Leaderboards</h2>
-          <p class="text-xs text-slate-400 font-medium mt-0.5">Top 5 and Bottom 5 rankings partitioned by party across all metrics</p>
-        </div>
-      </div>
-
-      <!-- Category Selector Dropdown -->
-      <div class="flex items-center gap-3">
-        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Category:</label>
-        <select id="leaderboardCatSelect" onchange="renderSelectedLeaderboard()" class="bg-slate-950 border border-slate-700 text-xs text-slate-200 rounded-lg p-2 focus:outline-none focus:border-cyan-500 max-w-xs font-medium"></select>
-      </div>
-
-      <!-- Leaderboard Display Columns -->
-      <div id="leaderboardColumnsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-
-    </div>
-  </div>
-
-  <!-- ============================================================== -->
-  <!-- MODAL: HEAD-TO-HEAD COMPARISON (#comparisonModal)               -->
-  <!-- ============================================================== -->
-  <div id="comparisonModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full p-6 shadow-2xl relative space-y-6 my-8">
-      
-      <button onclick="closeModal('comparisonModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
-
-      <!-- Header -->
-      <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
-        <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-700 flex items-center justify-center text-cyan-400 flex-shrink-0">
-          <i data-lucide="split" class="w-6 h-6"></i>
-        </div>
-        <div>
-          <h2 class="text-xl font-black text-white">Head-to-Head Lawmaker Matchup</h2>
-          <p class="text-xs text-slate-400 font-medium mt-0.5">Compare policy alignment, radar stats, and roll call vote divergences</p>
-        </div>
-      </div>
-
-      <!-- Lawmaker Selection Controls -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
-        <div>
-          <label class="block font-bold text-blue-400 uppercase tracking-wider text-[10px] mb-1">Lawmaker #1</label>
-          <select id="compareSelect1" onchange="runHeadToHeadCompare()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 font-medium focus:outline-none focus:border-blue-500"></select>
-        </div>
-        <div>
-          <label class="block font-bold text-red-400 uppercase tracking-wider text-[10px] mb-1">Lawmaker #2</label>
-          <select id="compareSelect2" onchange="runHeadToHeadCompare()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 font-medium focus:outline-none focus:border-red-500"></select>
-        </div>
-      </div>
-
-      <!-- Matchup Score & Verdict Banner -->
-      <div class="bg-gradient-to-r from-blue-950/60 via-slate-950 to-red-950/60 p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-        <div>
-          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Voting Record Agreement Rate</div>
-          <div id="compareAgreementScore" class="text-3xl font-black text-cyan-400 font-mono mt-0.5">--% Match</div>
-        </div>
-        <p id="compareVerdictText" class="text-xs text-slate-300 max-w-lg leading-relaxed"></p>
-      </div>
-
-      <!-- Radar Comparison Chart -->
-      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
-        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">7-Axis Civic Performance Radar</h3>
-        <div class="h-64 sm:h-80 w-full relative flex items-center justify-center">
-          <canvas id="compareRadarChart"></canvas>
-        </div>
-      </div>
-
-      <!-- Divergent Votes Table -->
-      <div class="space-y-2">
-        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Divergent Roll Call Votes (Voted Opposite)</h3>
-        <div id="compareDivergentList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- [EXISTING MODALS RETAINED: RATING, COMMITTEE, DISTRICT, CATEGORY, METHODOLOGY, INFO] -->
-  <div id="ratingModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative space-y-5 my-8">
-      <button onclick="closeModal('ratingModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-      <div class="flex items-center gap-4 border-b border-slate-800 pb-4">
-        <div id="modalRatingBadge" class="w-16 h-16 rounded-2xl bg-cyan-600/20 border border-cyan-500 flex items-center justify-center text-3xl font-black text-cyan-400">A-</div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h2 id="modalRatingMemberName" class="text-xl font-bold text-white">Alexandria Ocasio-Cortez</h2>
-            <span id="modalRatingScoreText" class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-800 text-slate-300">83.8 / 100</span>
-          </div>
-          <p id="modalRatingTierLabel" class="text-xs font-bold text-cyan-400 mt-0.5 uppercase tracking-wider">EFFECTIVE DISTRICT CHAMPION</p>
-        </div>
+        <button onclick="closeModal('ratingModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div class="space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">5-Pillar Score Calculation</h3>
@@ -718,7 +850,7 @@
           <ul id="modalRatingPositiveDrivers" class="text-xs text-slate-300 space-y-1.5 list-disc list-inside"></ul>
         </div>
         <div class="bg-amber-950/40 border border-amber-900/60 rounded-xl p-3.5 space-y-2">
-          <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5"><i data-lucide="minus-circle" class="w-3.5 h-3.5"></i><span>Deductions & Penalties</span></h4>
+          <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5"><i data-lucide="minus-circle" class="w-3.5 h-3.5"></i><span>Deductions & Growth</span></h4>
           <ul id="modalRatingDeductions" class="text-xs text-slate-300 space-y-1.5 list-disc list-inside"></ul>
         </div>
       </div>
@@ -729,18 +861,21 @@
     </div>
   </div>
 
-  <div id="committeeModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative space-y-6 my-8">
-      <button onclick="closeModal('committeeModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-      <div class="flex items-start gap-4 border-b border-slate-800 pb-4">
-        <div class="w-12 h-12 rounded-xl bg-indigo-950 border border-indigo-700 flex items-center justify-center text-indigo-400 flex-shrink-0"><i data-lucide="shield" class="w-6 h-6"></i></div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h2 id="modalCommName" class="text-xl font-black text-white">House Committee on Oversight</h2>
-            <span id="modalCommTypeBadge" class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-cyan-400 border border-slate-700 uppercase">Standing Committee</span>
+  <!-- Committee Dossier Modal -->
+  <div id="committeeModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'committeeModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl modal-box p-6 shadow-2xl space-y-6">
+      <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-xl bg-indigo-950 border border-indigo-700 flex items-center justify-center text-indigo-400 flex-shrink-0"><i data-lucide="shield" class="w-6 h-6"></i></div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="modalCommName" class="text-xl font-black text-white">House Committee on Oversight</h2>
+              <span id="modalCommTypeBadge" class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-cyan-400 border border-slate-700 uppercase">Standing Committee</span>
+            </div>
+            <p id="modalCommChamber" class="text-xs text-slate-400 font-medium mt-0.5">U.S. House • Code: HSGO</p>
           </div>
-          <p id="modalCommChamber" class="text-xs text-slate-400 font-medium mt-0.5">U.S. House • Code: HSGO</p>
         </div>
+        <button onclick="closeModal('committeeModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div class="space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Statutory Jurisdiction & Mandate</h3>
@@ -782,18 +917,24 @@
         </div>
         <div id="modalCommRosterGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-1"></div>
       </div>
+      <div class="flex justify-end pt-2">
+        <button onclick="closeModal('committeeModal')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">Close Dossier</button>
+      </div>
     </div>
   </div>
 
-  <div id="districtModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative space-y-5 my-8">
-      <button onclick="closeModal('districtModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-      <div class="flex items-start gap-4 border-b border-slate-800 pb-4">
-        <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-700 flex items-center justify-center text-cyan-400 flex-shrink-0"><i data-lucide="map-pin" class="w-6 h-6"></i></div>
-        <div>
-          <h2 id="modalDistTitle" class="text-xl font-bold text-white">NY-14 District Demographics Dossier</h2>
-          <p id="modalDistSubtitle" class="text-xs text-slate-400 font-medium mt-0.5">U.S. Census 5-Year ACS Data Correlated Against Roll Call Votes</p>
+  <!-- District Demographics Dossier Modal -->
+  <div id="districtModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'districtModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl modal-box p-6 shadow-2xl space-y-5">
+      <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-700 flex items-center justify-center text-cyan-400 flex-shrink-0"><i data-lucide="map-pin" class="w-6 h-6"></i></div>
+          <div>
+            <h2 id="modalDistTitle" class="text-xl font-bold text-white">NY-14 District Demographics Dossier</h2>
+            <p id="modalDistSubtitle" class="text-xs text-slate-400 font-medium mt-0.5">U.S. Census 5-Year ACS Data Correlated Against Roll Call Votes</p>
+          </div>
         </div>
+        <button onclick="closeModal('districtModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div id="modalDistCorrelationsList" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
       <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 leading-relaxed" id="modalDistVerdict"></div>
@@ -803,15 +944,18 @@
     </div>
   </div>
 
-  <div id="categoryModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative space-y-5 my-8">
-      <button onclick="closeModal('categoryModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-      <div class="flex items-start gap-4 border-b border-slate-800 pb-4">
-        <div class="w-12 h-12 rounded-xl bg-purple-950 border border-purple-700 flex items-center justify-center text-purple-400 flex-shrink-0"><i data-lucide="file-text" class="w-6 h-6"></i></div>
-        <div>
-          <h2 id="modalCatTitle" class="text-xl font-bold text-white">Economy & Taxation Policy Archive</h2>
-          <p id="modalCatSubtitle" class="text-xs text-slate-400 font-medium mt-0.5">Comprehensive Landmark Bill Summaries & Statutory Impact</p>
+  <!-- Category Policy Archive Modal -->
+  <div id="categoryModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'categoryModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl modal-box p-6 shadow-2xl space-y-5">
+      <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-xl bg-purple-950 border border-purple-700 flex items-center justify-center text-purple-400 flex-shrink-0"><i data-lucide="file-text" class="w-6 h-6"></i></div>
+          <div>
+            <h2 id="modalCatTitle" class="text-xl font-bold text-white">Economy & Taxation Policy Archive</h2>
+            <p id="modalCatSubtitle" class="text-xs text-slate-400 font-medium mt-0.5">Comprehensive Landmark Bill Summaries & Statutory Impact</p>
+          </div>
         </div>
+        <button onclick="closeModal('categoryModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div id="modalCatBillsList" class="space-y-4 max-h-[500px] overflow-y-auto pr-2"></div>
       <div class="flex justify-end pt-2">
@@ -820,15 +964,18 @@
     </div>
   </div>
 
-  <div id="methodologyModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative space-y-6 my-8">
-      <button onclick="closeModal('methodologyModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-      <div class="flex items-start gap-4 border-b border-slate-800 pb-4">
-        <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-700 flex items-center justify-center text-cyan-400 flex-shrink-0"><i data-lucide="book-open" class="w-6 h-6"></i></div>
-        <div>
-          <h2 class="text-xl font-black text-white">Open Methodology & Data Sources</h2>
-          <p class="text-xs text-slate-400 font-medium mt-0.5">Full Mathematical Transparency & Nonpartisan Verification Standards</p>
+  <!-- Methodology & Open Data Specification Modal -->
+  <div id="methodologyModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'methodologyModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl modal-box p-6 shadow-2xl space-y-6">
+      <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-700 flex items-center justify-center text-cyan-400 flex-shrink-0"><i data-lucide="book-open" class="w-6 h-6"></i></div>
+          <div>
+            <h2 class="text-xl font-black text-white">Open Methodology & Data Sources</h2>
+            <p class="text-xs text-slate-400 font-medium mt-0.5">Full Mathematical Transparency & Nonpartisan Standards</p>
+          </div>
         </div>
+        <button onclick="closeModal('methodologyModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 leading-relaxed" id="methodologyMission"></div>
       <div class="space-y-3">
@@ -843,7 +990,7 @@
         <h4 class="font-bold text-slate-200 text-xs uppercase">Bias Mitigation & Academic Auditing</h4>
         <p id="methodologyBiasText"></p>
         <p class="text-cyan-400 font-mono text-[11px]">
-          Inspect code & submit pull requests: <a href="https://github.com/SaviorOfSanity/congress-nextgen-stats" target="_blank" class="underline hover:text-cyan-300">github.com/SaviorOfSanity/congress-nextgen-stats</a>
+          Inspect code & submit PRs: <a href="https://github.com/SaviorOfSanity/congress-nextgen-stats" target="_blank" class="underline hover:text-cyan-300">github.com/SaviorOfSanity/congress-nextgen-stats</a>
         </p>
       </div>
       <div class="flex justify-end pt-2">
@@ -852,15 +999,18 @@
     </div>
   </div>
 
-  <div id="infoModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative space-y-4">
-      <button onclick="closeModal('infoModal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-      <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
-        <div class="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400"><i data-lucide="info" class="w-5 h-5"></i></div>
-        <div>
-          <h3 id="infoModalTitle" class="text-base font-bold text-white">Metric Explanation</h3>
-          <p id="infoModalSubtitle" class="text-xs text-slate-400 font-mono">Civic Analytics Standard</p>
+  <!-- Metric Information Popover Modal -->
+  <div id="infoModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'infoModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg modal-box p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400"><i data-lucide="info" class="w-5 h-5"></i></div>
+          <div>
+            <h3 id="infoModalTitle" class="text-base font-bold text-white">Metric Information</h3>
+            <p id="infoModalSubtitle" class="text-xs text-slate-400 font-mono">Civic Analytics Standard</p>
+          </div>
         </div>
+        <button onclick="closeModal('infoModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div id="infoModalContent" class="text-xs text-slate-300 leading-relaxed space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800"></div>
       <div class="flex justify-end pt-2">
@@ -869,14 +1019,13 @@
     </div>
   </div>
 
-  <!-- APPLICATION JAVASCRIPT ENGINE -->
+  <!-- JAVASCRIPT ENGINE -->
   <script>
     let currentMemberId = "O000172";
+    let currentTimeframe = "career";
     let currentProfile = null;
     let currentCommitteeDossier = null;
-    let cachedLeaderboards = null;
     let cachedPartyRankings = null;
-    let allRosterMembers = [];
     let compareRadarChartInstance = null;
     let activeRosterTab = "majority";
 
@@ -884,56 +1033,128 @@
       "civic_indicators": {
         title: "Civic Performance Indicators",
         subtitle: "Balanced Accountability Benchmark",
-        content: "A set of five core metrics designed to evaluate a lawmaker's institutional diligence, independence, constituent alignment, and cross-party dealmaking. Rather than simple party-line metrics, these gauges highlight floor reliability and legislative motor."
+        content: "A set of core metrics designed to evaluate a lawmaker's institutional diligence, independence, constituent alignment, and cross-party dealmaking."
       },
       "attendance": {
         title: "Floor Roll Call Attendance",
         subtitle: "Clerk of the House / Secretary of the Senate Rolls",
-        content: "The exact percentage of official recorded roll call votes participated in. Missed votes and abstentions above 1.0% incur score deductions because voting on behalf of constituents is a fundamental constitutional duty."
+        content: "The exact percentage of official recorded roll call votes participated in. Missed votes and abstentions above 1.0% incur score deductions."
       },
       "constituent_sync": {
         title: "Constituent Demographic Sync",
         subtitle: "U.S. Census ACS 5-Year Data Mapping",
-        content: "Measures whether the lawmaker's roll call votes match the economic realities of their home district. For instance, voting for nutrition assistance in a high-SNAP district or supporting child tax credits in a high-poverty district."
+        content: "Measures whether the lawmaker's roll call votes match the socioeconomic realities of their home district (income levels, poverty rate, SNAP, Medicaid enrollment)."
       },
       "party_unity": {
         title: "Party Line Unity & Cohesion",
         subtitle: "Caucus Whip Alignment Index",
-        content: "The percentage of roll call votes where the lawmaker voted with the majority of their political party. High scores indicate party discipline; lower scores indicate independent or maverick voting tendencies."
+        content: "The percentage of roll call votes where the lawmaker voted with the majority of their political party."
       },
       "bipartisanship": {
         title: "Bipartisanship Velocity",
         subtitle: "Cross-Party Co-Sponsorships & Compromises",
-        content: "Evaluates the lawmaker's track record of co-sponsoring bills introduced by members of the opposing party and voting in favor of bipartisan consensus compromise measures."
+        content: "Evaluates the lawmaker's track record of co-sponsoring bills introduced by members of the opposing party and voting in favor of bipartisan consensus measures."
       },
       "grassroots": {
         title: "Grassroots Small-Dollar Funding",
         subtitle: "FEC Form 3 Itemized Receipts (<$200)",
-        content: "The proportion of total campaign funds raised from micro-donors giving less than $200. High percentages reflect strong direct-to-voter engagement and reduced reliance on corporate political action committees."
+        content: "The proportion of total campaign funds raised from micro-donors giving less than $200, reflecting direct voter support."
       },
       "pipeline": {
         title: "Legislative Output & Earmarks",
         subtitle: "Statutory Enactment & Appropriations",
-        content: "Tracks the full pipeline of bills introduced: from sponsorship to committee markup passage and enactment into federal law, along with direct community project funding (earmarks) secured for local hospitals, water, and transit."
+        content: "Tracks the full pipeline of bills introduced: from sponsorship to committee markup passage and enactment into federal law, along with direct community project earmarks secured."
       },
       "policy_verticals": {
         title: "Policy Verticals & Bill Archives",
         subtitle: "Topic-Specific Statutory Drill-Down",
-        content: "Clicking on any policy category opens all landmark bills in that sector, complete with plain-English summaries, statutory provisions, member roll calls, and district impact notes."
+        content: "Clicking on any policy category opens all landmark bills in that sector, complete with plain-English summaries, statutory provisions, and member votes."
       },
-      "stock_act": {
-        title: "STOCK Act & Committee Conflicts",
-        subtitle: "Congressional Ethics Disclosures",
-        content: "Periodic Transaction Reports (PTRs) cross-referenced against assigned committee jurisdictions to identify potential conflicts of interest where lawmakers trade equities in industries they directly regulate."
+      "wealth_pl": {
+        title: "Congressional Wealth P&L & Trajectory",
+        subtitle: "Financial Disclosure & Asset Analysis",
+        content: "Calculates the estimated change in personal net worth from the year first elected to present, juxtaposed against cumulative congressional salary earned ($174,000/year base) and standard S&P 500 equity appreciation."
+      },
+      "ethics_risk": {
+        title: "Ethics & Conflict Risk Index (0 - 100)",
+        subtitle: "Congressional Ethics & STOCK Act Auditing",
+        content: "Composite index auditing: (1) STOCK Act equity trades in industries under assigned committee jurisdictions, (2) Corporate PAC dependency %, and (3) Net worth growth acceleration multiples significantly exceeding salary baselines."
+      },
+      "tug_of_war": {
+        title: "Constituents vs Special Interest Donors",
+        subtitle: "Sector-by-Sector Alignment Audit",
+        content: "Cross-references campaign finance industry donations against home district needs and final roll call votes to show whether the lawmaker voted with their constituents or their largest donors."
+      },
+      "progression": {
+        title: "Year-over-Year Career & Wealth Progression",
+        subtitle: "Multi-Decade Evolution",
+        content: "Chronological trajectory charting net worth growth, bipartisanship velocity, party unity, and DW-NOMINATE ideological lean over each term served in Congress."
       }
     };
 
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
       lucide.createIcons();
       setupSearch();
+      setupEscapeKey();
       loadSyncStatus();
-      loadMember(currentMemberId);
+      await loadPartyRankingsData();
+      await loadMember(currentMemberId);
     });
+
+    // Close on Escape Key
+    function setupEscapeKey() {
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          const openModals = document.querySelectorAll(".modal-backdrop:not(.hidden)");
+          openModals.forEach(m => m.classList.add("hidden"));
+        }
+      });
+    }
+
+    function handleBackdropClick(event, modalId) {
+      if (event.target.id === modalId) {
+        closeModal(modalId);
+      }
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add("hidden");
+    }
+
+    // MAIN VIEW SWITCHER (Leaderboard vs Profile vs Compare)
+    function switchMainTab(tab) {
+      const vLead = document.getElementById("viewLeaderboard");
+      const vProf = document.getElementById("viewProfile");
+      const vComp = document.getElementById("viewCompare");
+
+      const tLead = document.getElementById("tabNavLeaderboard");
+      const tProf = document.getElementById("tabNavProfile");
+      const tComp = document.getElementById("tabNavCompare");
+
+      vLead.classList.add("hidden");
+      vProf.classList.add("hidden");
+      vComp.classList.add("hidden");
+
+      tLead.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-inactive";
+      tProf.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-inactive";
+      tComp.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-inactive";
+
+      if (tab === "leaderboard") {
+        vLead.classList.remove("hidden");
+        tLead.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-active";
+        filterAndRenderRankings();
+      } else if (tab === "profile") {
+        vProf.classList.remove("hidden");
+        tProf.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-active";
+        if (currentProfile) renderProfile(currentProfile);
+      } else if (tab === "compare") {
+        vComp.classList.remove("hidden");
+        tComp.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 nav-tab-active";
+        initComparisonView();
+      }
+      lucide.createIcons();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     async function loadSyncStatus() {
       try {
@@ -956,9 +1177,9 @@
       try {
         const res = await fetch("/api/admin/sync", { method: "POST" });
         if (res.ok) {
-          cachedLeaderboards = null;
           cachedPartyRankings = null;
           await loadSyncStatus();
+          await loadPartyRankingsData();
           await loadMember(currentMemberId);
           alert("Database successfully synchronized across all roll calls, committees, and census metrics!");
         }
@@ -971,10 +1192,192 @@
       }
     }
 
+    // ==============================================================
+    // LEADERBOARD & PARTY RANKINGS (VIEW 1)
+    // ==============================================================
+    async function loadPartyRankingsData() {
+      try {
+        const res = await fetch("/api/party-rankings");
+        if (!res.ok) throw new Error("Failed to fetch party rankings");
+        cachedPartyRankings = await res.json();
+        filterAndRenderRankings();
+        renderPartySpotlights();
+      } catch (e) {
+        console.error("Failed to load rankings:", e);
+      }
+    }
+
+    function filterAndRenderRankings() {
+      if (!cachedPartyRankings || !cachedPartyRankings.members) return;
+
+      const partyFilter = document.getElementById("mainRankFilterParty").value;
+      const chamberFilter = document.getElementById("mainRankFilterChamber").value;
+      const sortMetric = document.getElementById("mainRankSortMetric").value;
+      const searchQuery = (document.getElementById("mainRankSearchInput").value || "").toLowerCase().trim();
+
+      let list = [...cachedPartyRankings.members];
+
+      if (partyFilter !== "ALL") {
+        list = list.filter(m => m.party.toLowerCase() === partyFilter.toLowerCase());
+      }
+      if (chamberFilter !== "ALL") {
+        list = list.filter(m => m.chamber.toLowerCase() === chamberFilter.toLowerCase());
+      }
+      if (searchQuery.length > 0) {
+        list = list.filter(m => 
+          m.full_name.toLowerCase().includes(searchQuery) ||
+          m.state.toLowerCase().includes(searchQuery) ||
+          (m.archetype && m.archetype.toLowerCase().includes(searchQuery))
+        );
+      }
+
+      // Sort
+      if (sortMetric === "ethics_risk_score") {
+        // Lower is cleaner/better
+        list.sort((a, b) => (parseFloat(a.ethics_risk_score) || 0) - (parseFloat(b.ethics_risk_score) || 0));
+      } else {
+        list.sort((a, b) => (parseFloat(b[sortMetric]) || 0) - (parseFloat(a[sortMetric]) || 0));
+      }
+
+      document.getElementById("rankCountDisplay").textContent = list.length;
+      const selectElem = document.getElementById("mainRankSortMetric");
+      document.getElementById("metricHeaderTitle").textContent = selectElem.options[selectElem.selectedIndex].text;
+
+      const container = document.getElementById("mainRankingsContainer");
+      container.innerHTML = "";
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs bg-slate-950 rounded-xl">No lawmakers match the selected filter criteria.</div>`;
+        return;
+      }
+
+      list.forEach((m, idx) => {
+        const rank = idx + 1;
+        let rankBadgeClass = "bg-slate-800 text-slate-300";
+        if (rank === 1) rankBadgeClass = "bg-amber-500/20 text-amber-300 border border-amber-500/50";
+        else if (rank === 2) rankBadgeClass = "bg-slate-300/20 text-slate-200 border border-slate-400/50";
+        else if (rank === 3) rankBadgeClass = "bg-amber-700/20 text-amber-500 border border-amber-700/50";
+
+        const partyBadgeColor = m.party === "Democrat" ? "text-blue-400 bg-blue-950/80 border-blue-800" : (m.party === "Republican" ? "text-red-400 bg-red-950/80 border-red-800" : "text-emerald-400 bg-emerald-950/80 border-emerald-800");
+
+        let metricDisplay = "";
+        if (sortMetric === "overall_score") {
+          metricDisplay = `<strong class="text-cyan-400 font-mono text-sm">${m.overall_score.toFixed(1)}</strong> <span class="text-[10px] text-slate-400">/ 100</span>`;
+        } else if (sortMetric.includes("pct") || sortMetric.includes("attendance") || sortMetric.includes("sync") || sortMetric.includes("velocity")) {
+          const val = parseFloat(m[sortMetric]) || 0;
+          metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${val.toFixed(1)}%</strong>`;
+        } else if (sortMetric === "earmarks_millions") {
+          metricDisplay = `<strong class="text-amber-400 font-mono text-sm">$${m.earmarks_millions.toFixed(1)}M</strong>`;
+        } else if (sortMetric === "wealth_growth_multiple") {
+          metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${m.wealth_growth_multiple}x</strong> <span class="text-[10px] text-slate-400">(${m.net_worth_growth_dollars})</span>`;
+        } else if (sortMetric === "ethics_risk_score") {
+          metricDisplay = `<strong class="text-cyan-400 font-mono text-sm">${m.ethics_risk_score}</strong> <span class="text-[10px] text-slate-400">(${m.ethics_risk_label})</span>`;
+        } else {
+          metricDisplay = `<strong class="text-white font-mono text-sm">${m[sortMetric]}</strong>`;
+        }
+
+        const row = document.createElement("div");
+        row.className = "bg-slate-950 hover:bg-slate-800/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3 transition-colors cursor-pointer";
+        row.onclick = () => {
+          loadMember(m.bioguide_id);
+          switchMainTab('profile');
+        };
+
+        row.innerHTML = `
+          <div class="flex items-center gap-3.5 min-w-0">
+            <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${rankBadgeClass}">
+              #${rank}
+            </span>
+            <img src="${m.image_url || ''}" class="w-10 h-10 rounded-xl object-cover bg-slate-900 border border-slate-700 flex-shrink-0" />
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-white truncate">${m.full_name}</span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-black border uppercase ${partyBadgeColor}">${m.party[0]}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 mt-0.5">${m.chamber} &bull; ${m.state}${m.district ? '-' + m.district : ''} &bull; ${m.archetype || 'Lawmaker'}</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4 flex-shrink-0 text-right">
+            <div class="hidden sm:block">
+              <div class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Rating</div>
+              <span class="px-2 py-0.5 rounded text-xs font-black bg-cyan-950 text-cyan-400 border border-cyan-800">${m.letter_grade}</span>
+            </div>
+            <div>
+              <div class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Score</div>
+              <div>${metricDisplay}</div>
+            </div>
+            <button class="px-2.5 py-1 rounded bg-slate-800 text-[10px] font-bold text-slate-300 hover:bg-cyan-600 hover:text-slate-950 transition-colors">
+              Inspect &rarr;
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+      lucide.createIcons();
+    }
+
+    function renderPartySpotlights() {
+      if (!cachedPartyRankings || !cachedPartyRankings.members) return;
+      const list = cachedPartyRankings.members;
+
+      const dems = list.filter(m => m.party === "Democrat").sort((a,b) => b.overall_score - a.overall_score).slice(0, 5);
+      const reps = list.filter(m => m.party === "Republican").sort((a,b) => b.overall_score - a.overall_score).slice(0, 5);
+
+      const dList = document.getElementById("spotlightDemList");
+      dList.innerHTML = "";
+      dems.forEach((m, idx) => {
+        const item = document.createElement("div");
+        item.onclick = () => { loadMember(m.bioguide_id); switchMainTab('profile'); };
+        item.className = "p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 flex items-center justify-between border border-slate-800 cursor-pointer transition-colors";
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-5 text-center text-xs font-bold text-blue-400">#${idx + 1}</span>
+            <img src="${m.image_url || ''}" class="w-8 h-8 rounded-lg object-cover bg-slate-900 border border-slate-700" />
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white truncate">${m.full_name}</div>
+              <div class="text-[10px] text-slate-400">${m.state}${m.district ? '-' + m.district : ''} &bull; Rating: ${m.letter_grade}</div>
+            </div>
+          </div>
+          <span class="text-xs font-mono font-bold text-cyan-400">${m.overall_score.toFixed(1)} Pts</span>
+        `;
+        dList.appendChild(item);
+      });
+
+      const rList = document.getElementById("spotlightRepList");
+      rList.innerHTML = "";
+      reps.forEach((m, idx) => {
+        const item = document.createElement("div");
+        item.onclick = () => { loadMember(m.bioguide_id); switchMainTab('profile'); };
+        item.className = "p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 flex items-center justify-between border border-slate-800 cursor-pointer transition-colors";
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-5 text-center text-xs font-bold text-red-400">#${idx + 1}</span>
+            <img src="${m.image_url || ''}" class="w-8 h-8 rounded-lg object-cover bg-slate-900 border border-slate-700" />
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white truncate">${m.full_name}</div>
+              <div class="text-[10px] text-slate-400">${m.state}${m.district ? '-' + m.district : ''} &bull; Rating: ${m.letter_grade}</div>
+            </div>
+          </div>
+          <span class="text-xs font-mono font-bold text-cyan-400">${m.overall_score.toFixed(1)} Pts</span>
+        `;
+        rList.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    // ==============================================================
+    // LAWMAKER PROFILE DOSSIER (VIEW 2)
+    // ==============================================================
+    async function onTimeframeChange() {
+      currentTimeframe = document.getElementById("timeframeSelector").value;
+      await loadMember(currentMemberId);
+    }
+
     async function loadMember(bioguideId) {
       currentMemberId = bioguideId;
       try {
-        const res = await fetch(`/api/profile/${bioguideId}`);
+        const res = await fetch(`/api/profile/${bioguideId}?timeframe=${currentTimeframe}`);
         if (!res.ok) throw new Error("Failed to load profile");
         
         const profile = await res.json();
@@ -991,6 +1394,9 @@
       const comb = scouting.combine_measurables;
       const pipe = p.legislative_pipeline;
       const consts = p.constituents;
+      const wealth = p.wealth_pl;
+      const ethics = p.ethics_risk;
+      const don = p.donor_influence;
 
       document.getElementById("memberName").textContent = bio.full_name;
       document.getElementById("memberPhoto").src = bio.image_url || `https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/original/${bio.bioguide_id}.jpg`;
@@ -1020,6 +1426,7 @@
       document.getElementById("draftArchetype").textContent = scouting.draft_archetype;
       document.getElementById("archetypeDesc").textContent = scouting.archetype_description;
 
+      // Affiliations Badges
       const badgesContainer = document.getElementById("committeeBadgesList");
       badgesContainer.innerHTML = "";
       const allAffs = [...p.affiliations.committees, ...p.affiliations.caucuses];
@@ -1031,6 +1438,36 @@
         badgesContainer.appendChild(btn);
       });
 
+      // Congressional Wealth P&L
+      document.getElementById("plStartingNW").textContent = wealth.starting_net_worth;
+      document.getElementById("plCurrentNW").textContent = wealth.current_net_worth;
+      document.getElementById("plNetWorthGain").textContent = wealth.net_worth_growth_dollars;
+      document.getElementById("plGrowthMultiple").textContent = `${wealth.wealth_growth_multiple}x`;
+      document.getElementById("plSalaryEarned").textContent = `$${wealth.total_salary_earned_millions.toFixed(2)}M`;
+      document.getElementById("plAssessmentText").textContent = wealth.wealth_trajectory_assessment;
+
+      // Ethics & Conflict Risk
+      document.getElementById("ethicsRiskScore").innerHTML = `${ethics.ethics_risk_score.toFixed(1)} <span class="text-xs text-slate-500 font-normal">/ 100</span>`;
+      document.getElementById("ethicsRiskLabel").textContent = ethics.risk_level_label;
+      const ethColor = ethics.ethics_risk_score <= 25 ? "text-emerald-400" : (ethics.ethics_risk_score <= 50 ? "text-cyan-400" : "text-amber-400");
+      document.getElementById("ethicsRiskLabel").className = `text-sm font-black mt-0.5 ${ethColor}`;
+
+      const ethList = document.getElementById("ethicsFactorsList");
+      ethList.innerHTML = "";
+      ethics.clean_indicators.forEach(c => {
+        const li = document.createElement("li");
+        li.className = "flex items-start gap-1.5 text-emerald-400";
+        li.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span class="text-slate-300">${c}</span>`;
+        ethList.appendChild(li);
+      });
+      ethics.conflict_drivers.forEach(d => {
+        const li = document.createElement("li");
+        li.className = "flex items-start gap-1.5 text-amber-400";
+        li.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span class="text-slate-300">${d}</span>`;
+        ethList.appendChild(li);
+      });
+
+      // Indicators
       document.getElementById("valAttendance").textContent = `${comb.floor_attendance}%`;
       document.getElementById("barAttendance").style.width = `${comb.floor_attendance}%`;
 
@@ -1046,16 +1483,60 @@
       document.getElementById("valGrassroots").textContent = `${p.finance.small_individual_pct}%`;
       document.getElementById("barGrassroots").style.width = `${p.finance.small_individual_pct}%`;
 
+      // Pipeline
       document.getElementById("billsSponsored").textContent = pipe.bills_sponsored_count;
       document.getElementById("billsPassedComm").textContent = pipe.bills_passed_committee_count;
       document.getElementById("billsEnacted").textContent = pipe.bills_enacted_into_law_count;
       document.getElementById("earmarksSecured").textContent = `$${pipe.earmarks_secured_millions.toFixed(1)}M`;
       document.getElementById("earmarksSummary").textContent = pipe.earmarks_summary;
 
+      // Demographics Card
       document.getElementById("distIncome").textContent = `$${consts.median_household_income.toLocaleString()}`;
       document.getElementById("distPoverty").textContent = `${consts.poverty_rate_pct}%`;
       document.getElementById("distSnap").textContent = `${consts.snap_assistance_pct}%`;
 
+      // Constituents vs Donors Tug-of-War Table
+      const tugContainer = document.getElementById("donorTugOfWarList");
+      tugContainer.innerHTML = "";
+      don.top_donor_sectors_breakdown.forEach(sec => {
+        const item = document.createElement("div");
+        item.className = "bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3 text-xs";
+        
+        let verdictBadge = "bg-slate-900 text-slate-300";
+        if (sec.loyalty_verdict.includes("District")) verdictBadge = "bg-emerald-950 text-emerald-400 border border-emerald-800";
+        else if (sec.loyalty_verdict.includes("Donor")) verdictBadge = "bg-amber-950 text-amber-400 border border-amber-800";
+
+        item.innerHTML = `
+          <div>
+            <div class="font-bold text-white">${sec.industry_name}</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">District Priority: ${sec.district_priority_level} &bull; Stance: ${sec.member_stance}</div>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black ${verdictBadge}">${sec.loyalty_verdict}</span>
+            <div class="text-[10px] text-cyan-400 font-mono font-bold mt-1">$${sec.amount_donated_millions.toFixed(2)}M (${sec.percentage_of_war_chest}%)</div>
+          </div>
+        `;
+        tugContainer.appendChild(item);
+      });
+
+      // Career YoY Progression Table
+      const progBody = document.getElementById("careerTimelineTableBody");
+      progBody.innerHTML = "";
+      p.career_progression.timeline.forEach(pt => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-950/60";
+        tr.innerHTML = `
+          <td class="p-2 font-bold text-white">${pt.era}</td>
+          <td class="p-2 font-mono">${pt.year}</td>
+          <td class="p-2 font-mono text-emerald-400 font-bold">$${pt.net_worth_millions.toFixed(2)}M</td>
+          <td class="p-2 font-mono text-amber-400">${pt.bipartisanship_pct}%</td>
+          <td class="p-2 font-mono text-blue-400">${pt.party_unity_pct}%</td>
+          <td class="p-2 font-mono text-slate-400">${pt.dw_nominate > 0 ? '+' : ''}${pt.dw_nominate.toFixed(2)}</td>
+        `;
+        progBody.appendChild(tr);
+      });
+
+      // Categories Grid
       const catGrid = document.getElementById("policyCategoriesGrid");
       catGrid.innerHTML = "";
       Object.entries(p.voting.category_breakdown).forEach(([catName, catStat]) => {
@@ -1080,611 +1561,41 @@
         catGrid.appendChild(card);
       });
 
-      const votesList = document.getElementById("recentVotesList");
-      votesList.innerHTML = "";
-      p.voting.recent_votes.slice(0, 4).forEach(v => {
-        const item = document.createElement("div");
-        item.className = "bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex items-center justify-between gap-3 text-xs";
+      lucide.createIcons();
+    }
+
+    // ==============================================================
+    // HEAD-TO-HEAD COMPARISON (VIEW 3)
+    // ==============================================================
+    async function initComparisonView() {
+      if (!cachedPartyRankings) {
+        await loadPartyRankingsData();
+      }
+
+      const select1 = document.getElementById("compareSelect1");
+      const select2 = document.getElementById("compareSelect2");
+      select1.innerHTML = "";
+      select2.innerHTML = "";
+
+      const members = cachedPartyRankings ? cachedPartyRankings.members : [];
+      members.forEach(m => {
+        const label = `${m.full_name} (${m.party ? m.party[0] : 'U'}-${m.state || 'US'})`;
         
-        const voteColor = v.member_vote === "YES" ? "text-emerald-400 bg-emerald-950/80 border-emerald-800" : "text-red-400 bg-red-950/80 border-red-800";
-        item.innerHTML = `
-          <div class="space-y-0.5">
-            <div class="font-bold text-slate-200">${v.bill_title}</div>
-            <div class="text-[11px] text-slate-400">${v.bill_number || v.roll_call_id} &bull; ${v.category} &bull; ${v.date}</div>
-          </div>
-          <div class="text-right flex-shrink-0">
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${voteColor}">${v.member_vote}</span>
-            <div class="text-[10px] text-slate-500 mt-1">${v.result}</div>
-          </div>
-        `;
-        votesList.appendChild(item);
+        const opt1 = document.createElement("option");
+        opt1.value = m.bioguide_id;
+        opt1.textContent = label;
+        if (m.bioguide_id === currentMemberId) opt1.selected = true;
+        select1.appendChild(opt1);
+
+        const opt2 = document.createElement("option");
+        opt2.value = m.bioguide_id;
+        opt2.textContent = label;
+        if (m.bioguide_id === "J000289" && currentMemberId !== "J000289") opt2.selected = true;
+        else if (m.bioguide_id === "O000172" && currentMemberId === "J000289") opt2.selected = true;
+        select2.appendChild(opt2);
       });
 
-      document.getElementById("stockConflictStatus").textContent = p.stock_trading.conflict_status;
-      document.getElementById("stockTradesSummary").textContent = p.stock_trading.conflict_summary;
-      document.getElementById("donorInfluenceVerdict").textContent = p.donor_influence.influence_archetype;
-      document.getElementById("donorSwaySummary").textContent = p.donor_influence.narrative_verdict;
-
-      lucide.createIcons();
-    }
-
-    function closeModal(modalId) {
-      document.getElementById(modalId).classList.add("hidden");
-    }
-
-    function openInfoModal(key) {
-      const data = METRIC_EXPLANATIONS[key] || { title: "Metric Information", subtitle: "Civic Standard", content: "Details for this metric." };
-      document.getElementById("infoModalTitle").textContent = data.title;
-      document.getElementById("infoModalSubtitle").textContent = data.subtitle;
-      document.getElementById("infoModalContent").innerHTML = `<p>${data.content}</p>`;
-      document.getElementById("infoModal").classList.remove("hidden");
-      lucide.createIcons();
-    }
-
-    // 1. Rating Explanation Modal
-    async function openRatingModal() {
-      try {
-        const res = await fetch(`/api/rating-breakdown/${currentMemberId}`);
-        if (!res.ok) throw new Error("Failed to load rating breakdown");
-        const bd = await res.json();
-
-        document.getElementById("modalRatingBadge").textContent = bd.letter_grade;
-        document.getElementById("modalRatingMemberName").textContent = bd.full_name;
-        document.getElementById("modalRatingScoreText").textContent = `${bd.overall_score.toFixed(1)} / 100 Pts`;
-        document.getElementById("modalRatingTierLabel").textContent = bd.tier_label;
-
-        const pillarsList = document.getElementById("modalRatingPillarsList");
-        pillarsList.innerHTML = "";
-        bd.pillars.forEach(pil => {
-          const row = document.createElement("div");
-          row.className = "bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5";
-          row.innerHTML = `
-            <div class="flex justify-between text-xs font-semibold">
-              <span class="text-slate-200">${pil.pillar_title}</span>
-              <span class="text-cyan-400 font-mono">${pil.points_earned.toFixed(1)} / ${pil.points_max.toFixed(0)} pts (${pil.percentage.toFixed(0)}%)</span>
-            </div>
-            <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-              <div class="bg-cyan-500 h-1.5 rounded-full" style="width: ${pil.percentage}%"></div>
-            </div>
-            <p class="text-[11px] text-slate-400">${pil.pillar_description}</p>
-          `;
-          pillarsList.appendChild(row);
-        });
-
-        const posList = document.getElementById("modalRatingPositiveDrivers");
-        posList.innerHTML = "";
-        bd.positive_drivers.forEach(d => {
-          const li = document.createElement("li");
-          li.textContent = d;
-          posList.appendChild(li);
-        });
-
-        const dedList = document.getElementById("modalRatingDeductions");
-        dedList.innerHTML = "";
-        bd.deductions_and_growth.forEach(d => {
-          const li = document.createElement("li");
-          li.textContent = d;
-          dedList.appendChild(li);
-        });
-
-        document.getElementById("modalRatingNarrative").textContent = bd.grade_explanation_narrative;
-        document.getElementById("ratingModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error loading rating explanation: " + e);
-      }
-    }
-
-    // 2. Committee & Caucus Dossier Modal
-    async function openCommitteeModal(commName) {
-      try {
-        const res = await fetch(`/api/committee/${encodeURIComponent(commName)}`);
-        if (!res.ok) throw new Error("Failed to load committee dossier");
-        const dossier = await res.json();
-        currentCommitteeDossier = dossier;
-
-        document.getElementById("modalCommName").textContent = dossier.committee_name;
-        document.getElementById("modalCommTypeBadge").textContent = dossier.type;
-        document.getElementById("modalCommChamber").textContent = `${dossier.chamber} • Code: ${dossier.committee_code}`;
-        document.getElementById("modalCommJurisdiction").textContent = dossier.jurisdiction_overview;
-
-        const agContainer = document.getElementById("modalCommAgencies");
-        agContainer.innerHTML = "";
-        dossier.key_agencies_supervised.forEach(ag => {
-          const badge = document.createElement("span");
-          badge.className = "px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700";
-          badge.textContent = ag;
-          agContainer.appendChild(badge);
-        });
-
-        if (dossier.chair) {
-          document.getElementById("modalCommChairName").textContent = dossier.chair.full_name;
-          document.getElementById("modalCommChairPhoto").src = dossier.chair.image_url || "";
-          document.getElementById("modalCommChairBtn").onclick = () => { closeModal('committeeModal'); loadMember(dossier.chair.bioguide_id); };
-        }
-        if (dossier.ranking_member) {
-          document.getElementById("modalCommRankingName").textContent = dossier.ranking_member.full_name;
-          document.getElementById("modalCommRankingPhoto").src = dossier.ranking_member.image_url || "";
-          document.getElementById("modalCommRankingBtn").onclick = () => { closeModal('committeeModal'); loadMember(dossier.ranking_member.bioguide_id); };
-        }
-
-        const subGrid = document.getElementById("modalCommSubcommittees");
-        subGrid.innerHTML = "";
-        dossier.subcommittees.forEach(sub => {
-          const item = document.createElement("div");
-          item.className = "bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs";
-          item.innerHTML = `
-            <div class="font-bold text-slate-200">${sub.name}</div>
-            <p class="text-[11px] text-slate-400 mt-1">${sub.focus_area}</p>
-          `;
-          subGrid.appendChild(item);
-        });
-
-        document.getElementById("modalCommMemberCount").textContent = dossier.total_members_count;
-        renderRosterGrid();
-
-        document.getElementById("committeeModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error loading committee details: " + e);
-      }
-    }
-
-    function toggleRosterTab(tab) {
-      activeRosterTab = tab;
-      if (tab === "majority") {
-        document.getElementById("tabMajorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold";
-        document.getElementById("tabMinorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-950 text-slate-400 hover:text-white";
-      } else {
-        document.getElementById("tabMinorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold";
-        document.getElementById("tabMajorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-950 text-slate-400 hover:text-white";
-      }
-      renderRosterGrid();
-    }
-
-    function renderRosterGrid() {
-      if (!currentCommitteeDossier) return;
-      const grid = document.getElementById("modalCommRosterGrid");
-      grid.innerHTML = "";
-      const list = activeRosterTab === "majority" ? currentCommitteeDossier.majority_members : currentCommitteeDossier.minority_members;
-      
-      list.forEach(m => {
-        const card = document.createElement("div");
-        card.onclick = () => { closeModal('committeeModal'); loadMember(m.bioguide_id); };
-        card.className = "bg-slate-950 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2.5 cursor-pointer transition-colors";
-        card.innerHTML = `
-          <img src="${m.image_url || ''}" class="w-9 h-9 rounded-lg object-cover bg-slate-900 border border-slate-700 flex-shrink-0" />
-          <div class="min-w-0">
-            <div class="text-xs font-bold text-slate-200 truncate">${m.full_name}</div>
-            <div class="text-[10px] text-slate-400">${m.party[0]}-${m.state} • ${m.role}</div>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    // 3. District Demographics Deep-Dive Modal
-    async function openDistrictModal() {
-      try {
-        const res = await fetch(`/api/district-dossier/${currentMemberId}`);
-        if (!res.ok) throw new Error("Failed to load district dossier");
-        const dossier = await res.json();
-
-        document.getElementById("modalDistTitle").textContent = `${dossier.state_name}-${dossier.district_code} District Demographics Dossier`;
-        document.getElementById("modalDistSubtitle").textContent = `Representative: ${dossier.representative_name} • Partisan Lean: ${dossier.partisan_lean_pvi}`;
-
-        const list = document.getElementById("modalDistCorrelationsList");
-        list.innerHTML = "";
-        dossier.metric_correlations.forEach(corr => {
-          const item = document.createElement("div");
-          item.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2";
-          item.innerHTML = `
-            <div class="flex items-center justify-between text-xs font-bold">
-              <span class="text-slate-200">${corr.metric_name}</span>
-              <span class="text-cyan-400 font-mono">District: ${corr.district_value} (Nat'l Avg: ${corr.national_avg})</span>
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">${corr.constituent_impact_analysis}</p>
-            <div class="text-[10px] text-slate-500 font-mono">Correlated Roll Calls: ${corr.correlated_roll_calls.join(" • ")}</div>
-          `;
-          list.appendChild(item);
-        });
-
-        document.getElementById("modalDistVerdict").textContent = dossier.overall_district_alignment_verdict;
-        document.getElementById("districtModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error loading district dossier: " + e);
-      }
-    }
-
-    // 4. Policy Category Bill Drill-Down Modal
-    async function openCategoryModal(catName) {
-      try {
-        const res = await fetch(`/api/category/${currentMemberId}/${encodeURIComponent(catName)}`);
-        if (!res.ok) throw new Error("Failed to load category bills");
-        const deepDive = await res.json();
-
-        document.getElementById("modalCatTitle").textContent = `${deepDive.category_name} Policy Archive`;
-        document.getElementById("modalCatSubtitle").textContent = `${deepDive.member_name} • ${deepDive.member_support_pct.toFixed(0)}% Affirmative Support Record`;
-
-        const list = document.getElementById("modalCatBillsList");
-        list.innerHTML = "";
-        deepDive.bills.forEach(b => {
-          const item = document.createElement("div");
-          item.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3";
-          
-          const voteBadge = b.member_vote === "YES" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800";
-          const provsHtml = b.key_provisions.map(p => `<li>${p}</li>`).join("");
-
-          item.innerHTML = `
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <h4 class="text-sm font-bold text-white">${b.bill_title}</h4>
-                <div class="text-xs text-slate-400 mt-0.5">${b.bill_number} &bull; Roll Call Date: ${b.date} &bull; Result: ${b.result}</div>
-              </div>
-              <span class="px-2.5 py-1 rounded text-xs font-black border ${voteBadge}">VOTED ${b.member_vote}</span>
-            </div>
-
-            <p class="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-slate-800/80">${b.plain_english_summary}</p>
-
-            <div class="space-y-1">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Key Statutory Provisions:</span>
-              <ul class="text-xs text-slate-300 list-disc list-inside space-y-1">${provsHtml}</ul>
-            </div>
-
-            <div class="text-[11px] text-cyan-400/90 font-medium">
-              <strong>District & Sector Impact:</strong> ${b.district_and_sector_impact}
-            </div>
-          `;
-          list.appendChild(item);
-        });
-
-        document.getElementById("categoryModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error loading category deep dive: " + e);
-      }
-    }
-
-    // 5. Open Methodology Modal
-    async function openMethodologyModal() {
-      try {
-        const res = await fetch("/api/methodology");
-        if (!res.ok) throw new Error("Failed to load methodology documentation");
-        const doc = await res.json();
-
-        document.getElementById("methodologyMission").textContent = doc.mission_statement;
-
-        const srcContainer = document.getElementById("methodologySourcesList");
-        srcContainer.innerHTML = "";
-        doc.data_sources.forEach(src => {
-          const item = document.createElement("div");
-          item.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5";
-          item.innerHTML = `
-            <div class="flex items-center justify-between text-xs font-bold">
-              <span class="text-white">${src.name}</span>
-              <span class="text-cyan-400 font-mono text-[11px]">${src.update_frequency}</span>
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">${src.description}</p>
-            <div class="text-[10px] text-slate-500 font-mono">Source API: <a href="${src.verification_url}" target="_blank" class="text-cyan-400 underline">${src.endpoint_or_source}</a></div>
-          `;
-          srcContainer.appendChild(item);
-        });
-
-        const formContainer = document.getElementById("methodologyFormulasList");
-        formContainer.innerHTML = "";
-        doc.scoring_formulas.forEach(form => {
-          const item = document.createElement("div");
-          item.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5";
-          item.innerHTML = `
-            <div class="flex items-center justify-between text-xs font-bold">
-              <span class="text-cyan-400 font-mono">${form.metric_name} (${form.scale})</span>
-            </div>
-            <div class="bg-slate-900 p-2 rounded text-[11px] font-mono text-slate-200 border border-slate-800">${form.formula_text}</div>
-            <p class="text-xs text-slate-300">${form.rationale}</p>
-          `;
-          formContainer.appendChild(item);
-        });
-
-        document.getElementById("methodologyBiasText").textContent = doc.bias_mitigation_policy;
-        document.getElementById("methodologyModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error loading methodology: " + e);
-      }
-    }
-
-    // ==============================================================
-    // 6. PARTY RANKINGS & LEGISLATIVE BENCHMARKING MODAL
-    // ==============================================================
-    async function openPartyRanksModal() {
-      try {
-        if (!cachedPartyRankings) {
-          const res = await fetch("/api/party-rankings");
-          if (!res.ok) throw new Error("Failed to load party rankings");
-          cachedPartyRankings = await res.json();
-        }
-        applyPartyRankingsFilter();
-        document.getElementById("partyRanksModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error loading party rankings: " + e);
-      }
-    }
-
-    function applyPartyRankingsFilter() {
-      if (!cachedPartyRankings || !cachedPartyRankings.members) return;
-
-      const partyFilter = document.getElementById("rankFilterParty").value;
-      const chamberFilter = document.getElementById("rankFilterChamber").value;
-      const sortMetric = document.getElementById("rankSortMetric").value;
-      const searchQuery = (document.getElementById("rankSearchInput").value || "").toLowerCase().trim();
-
-      let list = [...cachedPartyRankings.members];
-
-      // Filter Party
-      if (partyFilter !== "ALL") {
-        list = list.filter(m => m.party.toLowerCase() === partyFilter.toLowerCase());
-      }
-
-      // Filter Chamber
-      if (chamberFilter !== "ALL") {
-        list = list.filter(m => m.chamber.toLowerCase() === chamberFilter.toLowerCase());
-      }
-
-      // Search Query
-      if (searchQuery.length > 0) {
-        list = list.filter(m => 
-          m.full_name.toLowerCase().includes(searchQuery) ||
-          m.state.toLowerCase().includes(searchQuery) ||
-          (m.archetype && m.archetype.toLowerCase().includes(searchQuery))
-        );
-      }
-
-      // Sort by Metric (Descending)
-      list.sort((a, b) => {
-        const valA = parseFloat(a[sortMetric]) || 0;
-        const valB = parseFloat(b[sortMetric]) || 0;
-        return valB - valA;
-      });
-
-      // Update count & label
-      document.getElementById("rankingsCount").textContent = list.length;
-      const sortSelect = document.getElementById("rankSortMetric");
-      const selectedOptionText = sortSelect.options[sortSelect.selectedIndex].text;
-      document.getElementById("rankSortLabel").textContent = `Sorted by ${selectedOptionText}`;
-
-      // Render Grid
-      const grid = document.getElementById("partyRankingsGrid");
-      grid.innerHTML = "";
-
-      if (list.length === 0) {
-        grid.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs bg-slate-950 rounded-xl">No lawmakers match the selected filter criteria.</div>`;
-        return;
-      }
-
-      list.forEach((m, idx) => {
-        const rank = idx + 1;
-        let rankBadgeClass = "bg-slate-800 text-slate-300";
-        if (rank === 1) rankBadgeClass = "bg-amber-500/20 text-amber-300 border border-amber-500/50";
-        else if (rank === 2) rankBadgeClass = "bg-slate-300/20 text-slate-200 border border-slate-400/50";
-        else if (rank === 3) rankBadgeClass = "bg-amber-700/20 text-amber-500 border border-amber-700/50";
-
-        const partyBadgeColor = m.party === "Democrat" ? "text-blue-400 bg-blue-950/80 border-blue-800" : (m.party === "Republican" ? "text-red-400 bg-red-950/80 border-red-800" : "text-emerald-400 bg-emerald-950/80 border-emerald-800");
-
-        // Format metric display
-        let metricDisplay = "";
-        if (sortMetric === "overall_score") {
-          metricDisplay = `<strong class="text-cyan-400 font-mono text-sm">${m.overall_score.toFixed(1)}</strong> <span class="text-[10px] text-slate-400">/ 100 Pts</span>`;
-        } else if (sortMetric.includes("pct") || sortMetric.includes("attendance") || sortMetric.includes("sync") || sortMetric.includes("velocity")) {
-          const val = parseFloat(m[sortMetric]) || 0;
-          metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${val.toFixed(1)}%</strong>`;
-        } else if (sortMetric === "earmarks_millions") {
-          metricDisplay = `<strong class="text-amber-400 font-mono text-sm">$${m.earmarks_millions.toFixed(1)}M</strong>`;
-        } else {
-          metricDisplay = `<strong class="text-white font-mono text-sm">${m[sortMetric]}</strong>`;
-        }
-
-        const row = document.createElement("div");
-        row.className = "bg-slate-950 hover:bg-slate-800/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3 transition-colors cursor-pointer";
-        row.onclick = () => {
-          closeModal('partyRanksModal');
-          loadMember(m.bioguide_id);
-        };
-
-        row.innerHTML = `
-          <div class="flex items-center gap-3.5 min-w-0">
-            <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${rankBadgeClass}">
-              #${rank}
-            </span>
-            <img src="${m.image_url || ''}" class="w-10 h-10 rounded-xl object-cover bg-slate-900 border border-slate-700 flex-shrink-0" />
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-white truncate">${m.full_name}</span>
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-black border uppercase ${partyBadgeColor}">${m.party[0]}</span>
-              </div>
-              <div class="text-[10px] text-slate-400 mt-0.5">${m.chamber} &bull; ${m.state}${m.district ? '-' + m.district : ''} &bull; ${m.archetype || 'Lawmaker'}</div>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-4 flex-shrink-0 text-right">
-            <div class="hidden sm:block">
-              <div class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Rating</div>
-              <span class="px-2 py-0.5 rounded text-xs font-black bg-cyan-950 text-cyan-400 border border-cyan-800">${m.letter_grade}</span>
-            </div>
-            <div>
-              <div class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Metric Score</div>
-              <div>${metricDisplay}</div>
-            </div>
-            <button class="px-2.5 py-1 rounded bg-slate-800 text-[10px] font-bold text-slate-300 hover:bg-cyan-600 hover:text-slate-950 transition-colors">
-              View &rarr;
-            </button>
-          </div>
-        `;
-        grid.appendChild(row);
-      });
-
-      lucide.createIcons();
-    }
-
-    // ==============================================================
-    // 7. LEADERBOARDS MODAL
-    // ==============================================================
-    async function openLeaderboardModal() {
-      try {
-        if (!cachedLeaderboards) {
-          const res = await fetch("/api/leaderboard");
-          if (!res.ok) throw new Error("Failed to load leaderboards");
-          cachedLeaderboards = await res.json();
-        }
-
-        const select = document.getElementById("leaderboardCatSelect");
-        select.innerHTML = "";
-        
-        const allCats = [...cachedLeaderboards.combine_categories, ...cachedLeaderboards.policy_categories];
-        allCats.forEach((c, idx) => {
-          const opt = document.createElement("option");
-          opt.value = idx;
-          opt.textContent = c.category_title;
-          select.appendChild(opt);
-        });
-
-        renderSelectedLeaderboard();
-        document.getElementById("leaderboardModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error loading leaderboards: " + e);
-      }
-    }
-
-    function renderSelectedLeaderboard() {
-      if (!cachedLeaderboards) return;
-      const select = document.getElementById("leaderboardCatSelect");
-      const idx = parseInt(select.value) || 0;
-      const allCats = [...cachedLeaderboards.combine_categories, ...cachedLeaderboards.policy_categories];
-      const catData = allCats[idx];
-
-      const container = document.getElementById("leaderboardColumnsContainer");
-      container.innerHTML = "";
-
-      // Left: Democrats Top 5
-      const demCard = document.createElement("div");
-      demCard.className = "bg-slate-950 p-4 rounded-xl border border-blue-900/60 space-y-3";
-      demCard.innerHTML = `
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-          <h3 class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-            <i data-lucide="shield" class="w-4 h-4"></i>
-            <span>Democrats Top Leaders</span>
-          </h3>
-          <span class="text-[10px] text-slate-500 font-mono">Ranked</span>
-        </div>
-        <div class="space-y-2" id="demLeaderList"></div>
-      `;
-      container.appendChild(demCard);
-
-      const demList = demCard.querySelector("#demLeaderList");
-      catData.democrats_top5.forEach((m, rankIdx) => {
-        const item = document.createElement("div");
-        item.onclick = () => { closeModal('leaderboardModal'); loadMember(m.bioguide_id); };
-        item.className = "p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 flex items-center justify-between border border-slate-800 cursor-pointer transition-colors";
-        item.innerHTML = `
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="w-5 text-center text-xs font-bold text-blue-400">#${rankIdx + 1}</span>
-            <img src="${m.image_url || ''}" class="w-8 h-8 rounded-lg object-cover bg-slate-950 border border-slate-700" />
-            <div class="min-w-0">
-              <div class="text-xs font-bold text-white truncate">${m.full_name}</div>
-              <div class="text-[10px] text-slate-400">${m.state}${m.district ? '-' + m.district : ''} &bull; Rating: ${m.draft_grade}</div>
-            </div>
-          </div>
-          <span class="text-xs font-mono font-bold text-cyan-400">${m.score_formatted}</span>
-        `;
-        demList.appendChild(item);
-      });
-
-      // Right: Republicans Top 5
-      const repCard = document.createElement("div");
-      repCard.className = "bg-slate-950 p-4 rounded-xl border border-red-900/60 space-y-3";
-      repCard.innerHTML = `
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-          <h3 class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-            <i data-lucide="shield" class="w-4 h-4"></i>
-            <span>Republicans Top Leaders</span>
-          </h3>
-          <span class="text-[10px] text-slate-500 font-mono">Ranked</span>
-        </div>
-        <div class="space-y-2" id="repLeaderList"></div>
-      `;
-      container.appendChild(repCard);
-
-      const repList = repCard.querySelector("#repLeaderList");
-      catData.republicans_top5.forEach((m, rankIdx) => {
-        const item = document.createElement("div");
-        item.onclick = () => { closeModal('leaderboardModal'); loadMember(m.bioguide_id); };
-        item.className = "p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 flex items-center justify-between border border-slate-800 cursor-pointer transition-colors";
-        item.innerHTML = `
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="w-5 text-center text-xs font-bold text-red-400">#${rankIdx + 1}</span>
-            <img src="${m.image_url || ''}" class="w-8 h-8 rounded-lg object-cover bg-slate-950 border border-slate-700" />
-            <div class="min-w-0">
-              <div class="text-xs font-bold text-white truncate">${m.full_name}</div>
-              <div class="text-[10px] text-slate-400">${m.state}${m.district ? '-' + m.district : ''} &bull; Rating: ${m.draft_grade}</div>
-            </div>
-          </div>
-          <span class="text-xs font-mono font-bold text-cyan-400">${m.score_formatted}</span>
-        `;
-        repList.appendChild(item);
-      });
-
-      lucide.createIcons();
-    }
-
-    // ==============================================================
-    // 8. HEAD-TO-HEAD COMPARISON MODAL
-    // ==============================================================
-    async function openComparisonModal() {
-      try {
-        if (!cachedPartyRankings) {
-          const res = await fetch("/api/party-rankings");
-          if (res.ok) cachedPartyRankings = await res.json();
-        }
-
-        const select1 = document.getElementById("compareSelect1");
-        const select2 = document.getElementById("compareSelect2");
-        select1.innerHTML = "";
-        select2.innerHTML = "";
-
-        const members = cachedPartyRankings ? cachedPartyRankings.members : [
-          { bioguide_id: "O000172", full_name: "Alexandria Ocasio-Cortez (D-NY)" },
-          { bioguide_id: "J000289", full_name: "Jim Jordan (R-OH)" },
-          { bioguide_id: "P000197", full_name: "Nancy Pelosi (D-CA)" },
-          { bioguide_id: "M001184", full_name: "Thomas Massie (R-KY)" },
-          { bioguide_id: "G000592", full_name: "Jared Golden (D-ME)" },
-          { bioguide_id: "M000355", full_name: "Mitch McConnell (R-KY)" }
-        ];
-
-        members.forEach(m => {
-          const label = `${m.full_name} (${m.party ? m.party[0] : 'U'}-${m.state || 'US'})`;
-          
-          const opt1 = document.createElement("option");
-          opt1.value = m.bioguide_id;
-          opt1.textContent = label;
-          if (m.bioguide_id === currentMemberId) opt1.selected = true;
-          select1.appendChild(opt1);
-
-          const opt2 = document.createElement("option");
-          opt2.value = m.bioguide_id;
-          opt2.textContent = label;
-          if (m.bioguide_id === "J000289" && currentMemberId !== "J000289") opt2.selected = true;
-          else if (m.bioguide_id === "O000172" && currentMemberId === "J000289") opt2.selected = true;
-          select2.appendChild(opt2);
-        });
-
-        await runHeadToHeadCompare();
-        document.getElementById("comparisonModal").classList.remove("hidden");
-        lucide.createIcons();
-      } catch (e) {
-        alert("Error opening comparison: " + e);
-      }
+      await runHeadToHeadCompare();
     }
 
     async function runHeadToHeadCompare() {
@@ -1699,10 +1610,8 @@
         document.getElementById("compareAgreementScore").textContent = `${data.alignment_score_pct.toFixed(1)}% Match`;
         document.getElementById("compareVerdictText").textContent = data.matchup_verdict;
 
-        // Render Radar Chart
         renderCompareRadarChart(data.member1.bio.full_name, data.member2.bio.full_name, data.radar_comparison);
 
-        // Render Divergent Votes
         const divList = document.getElementById("compareDivergentList");
         divList.innerHTML = "";
         if (data.divergent_votes.length === 0) {
@@ -1724,7 +1633,6 @@
             divList.appendChild(row);
           });
         }
-
         lucide.createIcons();
       } catch (e) {
         console.error("Comparison error:", e);
@@ -1784,6 +1692,286 @@
       });
     }
 
+    // ==============================================================
+    // MODAL HANDLERS (Rating, Committee, District, Category, Methodology, Info)
+    // ==============================================================
+    function openInfoModal(key) {
+      const data = METRIC_EXPLANATIONS[key] || { title: "Metric Information", subtitle: "Civic Standard", content: "Details for this metric." };
+      document.getElementById("infoModalTitle").textContent = data.title;
+      document.getElementById("infoModalSubtitle").textContent = data.subtitle;
+      document.getElementById("infoModalContent").innerHTML = `<p>${data.content}</p>`;
+      document.getElementById("infoModal").classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    async function openRatingModal() {
+      try {
+        const res = await fetch(`/api/rating-breakdown/${currentMemberId}`);
+        if (!res.ok) throw new Error("Failed to load rating breakdown");
+        const bd = await res.json();
+
+        document.getElementById("modalRatingBadge").textContent = bd.letter_grade;
+        document.getElementById("modalRatingMemberName").textContent = bd.full_name;
+        document.getElementById("modalRatingScoreText").textContent = `${bd.overall_score.toFixed(1)} / 100 Pts`;
+        document.getElementById("modalRatingTierLabel").textContent = bd.tier_label;
+
+        const pillarsList = document.getElementById("modalRatingPillarsList");
+        pillarsList.innerHTML = "";
+        bd.pillars.forEach(pil => {
+          const row = document.createElement("div");
+          row.className = "bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5";
+          row.innerHTML = `
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="text-slate-200">${pil.pillar_title}</span>
+              <span class="text-cyan-400 font-mono">${pil.points_earned.toFixed(1)} / ${pil.points_max.toFixed(0)} pts (${pil.percentage.toFixed(0)}%)</span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+              <div class="bg-cyan-500 h-1.5 rounded-full" style="width: ${pil.percentage}%"></div>
+            </div>
+            <p class="text-[11px] text-slate-400">${pil.pillar_description}</p>
+          `;
+          pillarsList.appendChild(row);
+        });
+
+        const posList = document.getElementById("modalRatingPositiveDrivers");
+        posList.innerHTML = "";
+        bd.positive_drivers.forEach(d => {
+          const li = document.createElement("li");
+          li.textContent = d;
+          posList.appendChild(li);
+        });
+
+        const dedList = document.getElementById("modalRatingDeductions");
+        dedList.innerHTML = "";
+        bd.deductions_and_growth.forEach(d => {
+          const li = document.createElement("li");
+          li.textContent = d;
+          dedList.appendChild(li);
+        });
+
+        document.getElementById("modalRatingNarrative").textContent = bd.grade_explanation_narrative;
+        document.getElementById("ratingModal").classList.remove("hidden");
+        lucide.createIcons();
+      } catch (e) {
+        alert("Error loading rating explanation: " + e);
+      }
+    }
+
+    async function openCommitteeModal(commName) {
+      try {
+        const res = await fetch(`/api/committee/${encodeURIComponent(commName)}`);
+        if (!res.ok) throw new Error("Failed to load committee dossier");
+        const dossier = await res.json();
+        currentCommitteeDossier = dossier;
+
+        document.getElementById("modalCommName").textContent = dossier.committee_name;
+        document.getElementById("modalCommTypeBadge").textContent = dossier.type;
+        document.getElementById("modalCommChamber").textContent = `${dossier.chamber} • Code: ${dossier.committee_code}`;
+        document.getElementById("modalCommJurisdiction").textContent = dossier.jurisdiction_overview;
+
+        const agContainer = document.getElementById("modalCommAgencies");
+        agContainer.innerHTML = "";
+        dossier.key_agencies_supervised.forEach(ag => {
+          const badge = document.createElement("span");
+          badge.className = "px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700";
+          badge.textContent = ag;
+          agContainer.appendChild(badge);
+        });
+
+        if (dossier.chair) {
+          document.getElementById("modalCommChairName").textContent = dossier.chair.full_name;
+          document.getElementById("modalCommChairPhoto").src = dossier.chair.image_url || "";
+          document.getElementById("modalCommChairBtn").onclick = () => { closeModal('committeeModal'); loadMember(dossier.chair.bioguide_id); switchMainTab('profile'); };
+        }
+        if (dossier.ranking_member) {
+          document.getElementById("modalCommRankingName").textContent = dossier.ranking_member.full_name;
+          document.getElementById("modalCommRankingPhoto").src = dossier.ranking_member.image_url || "";
+          document.getElementById("modalCommRankingBtn").onclick = () => { closeModal('committeeModal'); loadMember(dossier.ranking_member.bioguide_id); switchMainTab('profile'); };
+        }
+
+        const subGrid = document.getElementById("modalCommSubcommittees");
+        subGrid.innerHTML = "";
+        dossier.subcommittees.forEach(sub => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs";
+          item.innerHTML = `
+            <div class="font-bold text-slate-200">${sub.name}</div>
+            <p class="text-[11px] text-slate-400 mt-1">${sub.focus_area}</p>
+          `;
+          subGrid.appendChild(item);
+        });
+
+        document.getElementById("modalCommMemberCount").textContent = dossier.total_members_count;
+        renderRosterGrid();
+
+        document.getElementById("committeeModal").classList.remove("hidden");
+        lucide.createIcons();
+      } catch (e) {
+        alert("Error loading committee details: " + e);
+      }
+    }
+
+    function toggleRosterTab(tab) {
+      activeRosterTab = tab;
+      if (tab === "majority") {
+        document.getElementById("tabMajorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold";
+        document.getElementById("tabMinorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-950 text-slate-400 hover:text-white";
+      } else {
+        document.getElementById("tabMinorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold";
+        document.getElementById("tabMajorityBtn").className = "px-2.5 py-1 rounded-lg bg-slate-950 text-slate-400 hover:text-white";
+      }
+      renderRosterGrid();
+    }
+
+    function renderRosterGrid() {
+      if (!currentCommitteeDossier) return;
+      const grid = document.getElementById("modalCommRosterGrid");
+      grid.innerHTML = "";
+      const list = activeRosterTab === "majority" ? currentCommitteeDossier.majority_members : currentCommitteeDossier.minority_members;
+      
+      list.forEach(m => {
+        const card = document.createElement("div");
+        card.onclick = () => { closeModal('committeeModal'); loadMember(m.bioguide_id); switchMainTab('profile'); };
+        card.className = "bg-slate-950 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2.5 cursor-pointer transition-colors";
+        card.innerHTML = `
+          <img src="${m.image_url || ''}" class="w-9 h-9 rounded-lg object-cover bg-slate-900 border border-slate-700 flex-shrink-0" />
+          <div class="min-w-0">
+            <div class="text-xs font-bold text-slate-200 truncate">${m.full_name}</div>
+            <div class="text-[10px] text-slate-400">${m.party[0]}-${m.state} • ${m.role}</div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function openDistrictModal() {
+      try {
+        const res = await fetch(`/api/district-dossier/${currentMemberId}`);
+        if (!res.ok) throw new Error("Failed to load district dossier");
+        const dossier = await res.json();
+
+        document.getElementById("modalDistTitle").textContent = `${dossier.state_name}-${dossier.district_code} District Demographics Dossier`;
+        document.getElementById("modalDistSubtitle").textContent = `Representative: ${dossier.representative_name} • Partisan Lean: ${dossier.partisan_lean_pvi}`;
+
+        const list = document.getElementById("modalDistCorrelationsList");
+        list.innerHTML = "";
+        dossier.metric_correlations.forEach(corr => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2";
+          item.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span class="text-slate-200">${corr.metric_name}</span>
+              <span class="text-cyan-400 font-mono">District: ${corr.district_value} (Nat'l Avg: ${corr.national_avg})</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">${corr.constituent_impact_analysis}</p>
+            <div class="text-[10px] text-slate-500 font-mono">Correlated Roll Calls: ${corr.correlated_roll_calls.join(" • ")}</div>
+          `;
+          list.appendChild(item);
+        });
+
+        document.getElementById("modalDistVerdict").textContent = dossier.overall_district_alignment_verdict;
+        document.getElementById("districtModal").classList.remove("hidden");
+        lucide.createIcons();
+      } catch (e) {
+        alert("Error loading district dossier: " + e);
+      }
+    }
+
+    async function openCategoryModal(catName) {
+      try {
+        const res = await fetch(`/api/category/${currentMemberId}/${encodeURIComponent(catName)}?timeframe=${currentTimeframe}`);
+        if (!res.ok) throw new Error("Failed to load category bills");
+        const deepDive = await res.json();
+
+        document.getElementById("modalCatTitle").textContent = `${deepDive.category_name} Policy Archive`;
+        document.getElementById("modalCatSubtitle").textContent = `${deepDive.member_name} • ${deepDive.member_support_pct.toFixed(0)}% Affirmative Support Record`;
+
+        const list = document.getElementById("modalCatBillsList");
+        list.innerHTML = "";
+        deepDive.bills.forEach(b => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3";
+          
+          const voteBadge = b.member_vote === "YES" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800";
+          const provsHtml = b.key_provisions.map(p => `<li>${p}</li>`).join("");
+
+          item.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">${b.bill_title}</h4>
+                <div class="text-xs text-slate-400 mt-0.5">${b.bill_number} &bull; Roll Call Date: ${b.date} &bull; Result: ${b.result}</div>
+              </div>
+              <span class="px-2.5 py-1 rounded text-xs font-black border ${voteBadge}">VOTED ${b.member_vote}</span>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-slate-800/80">${b.plain_english_summary}</p>
+
+            <div class="space-y-1">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Key Statutory Provisions:</span>
+              <ul class="text-xs text-slate-300 list-disc list-inside space-y-1">${provsHtml}</ul>
+            </div>
+
+            <div class="text-[11px] text-cyan-400/90 font-medium">
+              <strong>District & Sector Impact:</strong> ${b.district_and_sector_impact}
+            </div>
+          `;
+          list.appendChild(item);
+        });
+
+        document.getElementById("categoryModal").classList.remove("hidden");
+        lucide.createIcons();
+      } catch (e) {
+        alert("Error loading category deep dive: " + e);
+      }
+    }
+
+    async function openMethodologyModal() {
+      try {
+        const res = await fetch("/api/methodology");
+        if (!res.ok) throw new Error("Failed to load methodology documentation");
+        const doc = await res.json();
+
+        document.getElementById("methodologyMission").textContent = doc.mission_statement;
+
+        const srcContainer = document.getElementById("methodologySourcesList");
+        srcContainer.innerHTML = "";
+        doc.data_sources.forEach(src => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5";
+          item.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span class="text-white">${src.name}</span>
+              <span class="text-cyan-400 font-mono text-[11px]">${src.update_frequency}</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">${src.description}</p>
+            <div class="text-[10px] text-slate-500 font-mono">Source API: <a href="${src.verification_url}" target="_blank" class="text-cyan-400 underline">${src.endpoint_or_source}</a></div>
+          `;
+          srcContainer.appendChild(item);
+        });
+
+        const formContainer = document.getElementById("methodologyFormulasList");
+        formContainer.innerHTML = "";
+        doc.scoring_formulas.forEach(form => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5";
+          item.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span class="text-cyan-400 font-mono">${form.metric_name} (${form.scale})</span>
+            </div>
+            <div class="bg-slate-900 p-2 rounded text-[11px] font-mono text-slate-200 border border-slate-800">${form.formula_text}</div>
+            <p class="text-xs text-slate-300">${form.rationale}</p>
+          `;
+          formContainer.appendChild(item);
+        });
+
+        document.getElementById("methodologyBiasText").textContent = doc.bias_mitigation_policy;
+        document.getElementById("methodologyModal").classList.remove("hidden");
+        lucide.createIcons();
+      } catch (e) {
+        alert("Error loading methodology: " + e);
+      }
+    }
+
     // Search Autocomplete
     function setupSearch() {
       const input = document.getElementById("searchInput");
@@ -1828,6 +2016,7 @@
           document.getElementById("searchInput").value = "";
           document.getElementById("clearSearchBtn").classList.add("hidden");
           loadMember(m.bioguide_id);
+          switchMainTab('profile');
         };
 
         const badgeColor = m.party === "Democrat" ? "text-blue-400 bg-blue-950/80" : (m.party === "Republican" ? "text-red-400 bg-red-950/80" : "text-emerald-400 bg-emerald-950/80");

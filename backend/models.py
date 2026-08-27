@@ -263,6 +263,32 @@ class ScoutingCard(BaseModel):
     weaknesses_tendencies: List[str] = Field(default_factory=list)
     film_room_verdict: str
 
+# -------------------------------------------------------------
+# CONGRESSIONAL WEALTH P&L AND ETHICS / CONFLICT SCHEMAS
+# -------------------------------------------------------------
+class CongressionalWealthPL(BaseModel):
+    first_year_in_office: int = 2018
+    starting_net_worth: str = "$50k"
+    starting_net_worth_millions: float = 0.05
+    current_net_worth: str = "$125k"
+    current_net_worth_millions: float = 0.125
+    total_salary_earned_millions: float = 1.39 # Cumulative congressional salary
+    net_worth_growth_dollars: str = "+$75k"
+    net_worth_growth_pct: float = 150.0
+    annualized_growth_rate_pct: float = 12.5
+    wealth_trajectory_assessment: str = "Salary-consistent wealth growth with minimal outside asset appreciation."
+    wealth_growth_multiple: float = 2.5 # Current NW / Starting NW
+
+class CivicEthicsConflictIndex(BaseModel):
+    ethics_risk_score: float = 5.0 # 0 (Clean / Minimum Risk) to 100 (Severe Ethics Conflict)
+    risk_level_label: str = "LOW ETHICS RISK / CLEAN" # "LOW ETHICS RISK", "MODERATE CONFLICT", "ELEVATED JURISDICTION OVERLAP", "HIGH CONFLICT RISK"
+    stock_trading_conflict_pts: float = 0.0 # Points from trading equities in committee jurisdiction
+    pac_capture_pts: float = 2.0 # Points from PAC / lobbyist dependency
+    abnormal_wealth_pts: float = 3.0 # Points from wealth growth outpacing salary
+    conflict_drivers: List[str] = Field(default_factory=list)
+    clean_indicators: List[str] = Field(default_factory=list)
+    ethics_narrative: str = "Zero individual stock trades disclosed. Fully compliant with STOCK Act standards."
+
 class CongressionalProfile(BaseModel):
     bio: MemberBio
     affiliations: AffiliationData
@@ -275,6 +301,8 @@ class CongressionalProfile(BaseModel):
     stock_trading: StockTradingProfile
     career_progression: CareerProgression
     legislative_pipeline: LegislativePipelineStats = Field(default_factory=LegislativePipelineStats)
+    wealth_pl: CongressionalWealthPL = Field(default_factory=CongressionalWealthPL)
+    ethics_risk: CivicEthicsConflictIndex = Field(default_factory=CivicEthicsConflictIndex)
     scouting: ScoutingCard
     last_updated: str
 
@@ -444,6 +472,11 @@ class PartyRankingEntry(BaseModel):
     pac_dependency: float
     clutch_rating: float
     stock_conflict_index: float
+    current_net_worth: str = "$1.5M"
+    net_worth_growth_dollars: str = "+$800k"
+    wealth_growth_multiple: float = 2.5
+    ethics_risk_score: float = 12.0
+    ethics_risk_label: str = "LOW RISK"
 
 class PartyRankingsResponse(BaseModel):
     total_members_count: int

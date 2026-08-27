@@ -27,7 +27,9 @@ from backend.models import (
     RatingBreakdownDossier,
     DonorVsConstituentAnalysis,
     PartyRankingEntry,
-    PartyRankingsResponse
+    PartyRankingsResponse,
+    CongressionalWealthPL,
+    CivicEthicsConflictIndex
 )
 import datetime
 
@@ -704,9 +706,132 @@ def generate_legislative_pipeline(bio: MemberBio, affiliations: AffiliationData)
         oversight_hearing_attendance_pct=95.8
     )
 
+def calculate_wealth_pl(bio: MemberBio, progression: CareerProgression) -> CongressionalWealthPL:
+    first_year = bio.first_elected or 2020
+    years_in_office = max(1, 2026 - first_year)
+    total_salary = round((years_in_office * 174000) / 1_000_000, 2)
+    
+    if progression.timeline and len(progression.timeline) > 0:
+        start_pt = progression.timeline[0]
+        end_pt = progression.timeline[-1]
+        start_nw = start_pt.net_worth_millions
+        end_nw = end_pt.net_worth_millions
+    else:
+        start_nw = 0.5
+        end_nw = 1.8
+        
+    growth_diff = round(end_nw - start_nw, 2)
+    growth_pct = round(((end_nw - start_nw) / max(0.01, start_nw)) * 100.0, 1)
+    ann_growth = round(growth_pct / max(1, years_in_office), 1)
+    growth_mult = round(end_nw / max(0.01, start_nw), 1)
+    
+    if start_nw < 0.1:
+        start_str = f"${int(start_nw * 1000)}k"
+    else:
+        start_str = f"${start_nw:.1f}M"
+        
+    if end_nw < 0.1:
+        end_str = f"${int(end_nw * 1000)}k"
+    else:
+        end_str = f"${end_nw:.1f}M"
+        
+    if growth_diff >= 0:
+        growth_str = f"+${growth_diff:.1f}M" if abs(growth_diff) >= 0.1 else f"+${int(growth_diff * 1000)}k"
+    else:
+        growth_str = f"-${abs(growth_diff):.1f}M"
+        
+    if growth_mult > 15.0:
+        trajectory = f"Significant wealth acceleration ({growth_mult:.1f}x gain / {growth_str}) since entering Congress in {first_year}, markedly outpacing standard cumulative salary (${total_salary:.2f}M)."
+    elif growth_mult > 3.0:
+        trajectory = f"Moderate wealth appreciation ({growth_mult:.1f}x growth) in line with long-term diversified index equity gains over {years_in_office} years in public office."
+    else:
+        trajectory = f"Salary-consistent financial profile with modest asset changes (${total_salary:.2f}M cumulative salary earned vs {growth_str} net worth change)."
+
+    return CongressionalWealthPL(
+        first_year_in_office=first_year,
+        starting_net_worth=start_str,
+        starting_net_worth_millions=start_nw,
+        current_net_worth=end_str,
+        current_net_worth_millions=end_nw,
+        total_salary_earned_millions=total_salary,
+        net_worth_growth_dollars=growth_str,
+        net_worth_growth_pct=growth_pct,
+        annualized_growth_rate_pct=ann_growth,
+        wealth_trajectory_assessment=trajectory,
+        wealth_growth_multiple=growth_mult
+    )
+
+def calculate_ethics_risk(
+    bio: MemberBio,
+    stock_trading: StockTradingProfile,
+    finance: CampaignFinanceSummary,
+    donor_influence: DonorVsConstituentAnalysis,
+    wealth_pl: CongressionalWealthPL
+) -> CivicEthicsConflictIndex:
+    stock_conflict_raw = stock_trading.committee_conflict_index
+    stock_pts = round((stock_conflict_raw / 100.0) * 40.0, 1)
+    
+    pac_pct = finance.pac_contributions_pct
+    pac_pts = round((pac_pct / 100.0) * 35.0, 1)
+    
+    if wealth_pl.wealth_growth_multiple > 20.0:
+        wealth_pts = 25.0
+    elif wealth_pl.wealth_growth_multiple > 10.0:
+        wealth_pts = 18.0
+    elif wealth_pl.wealth_growth_multiple > 4.0:
+        wealth_pts = 10.0
+    else:
+        wealth_pts = 2.0
+        
+    total_risk = round(min(100.0, max(2.0, stock_pts + pac_pts + wealth_pts)), 1)
+    
+    conflict_drivers = []
+    clean_indicators = []
+    
+    if stock_trading.total_trades_disclosed == 0:
+        clean_indicators.append("Zero individual equity transactions disclosed (Index / Cash only)")
+    elif stock_pts > 20.0:
+        conflict_drivers.append(f"High-volume equity trading ({stock_trading.total_trades_disclosed} trades) in sectors overlapping committee jurisdiction")
+    else:
+        clean_indicators.append("Diversified holdings with minimal committee jurisdiction conflicts")
+        
+    if finance.small_individual_pct >= 60.0:
+        clean_indicators.append(f"Grassroots micro-funded campaign ({finance.small_individual_pct:.1f}% under $200) with low PAC dependency")
+    elif pac_pct >= 50.0:
+        conflict_drivers.append(f"Heavy corporate PAC campaign reliance ({pac_pct:.1f}% of total receipts)")
+        
+    if wealth_pl.wealth_growth_multiple > 10.0:
+        conflict_drivers.append(f"Substantial net worth multiple ({wealth_pl.wealth_growth_multiple:.1f}x gain) during congressional tenure")
+    else:
+        clean_indicators.append("Net worth growth consistent with standard federal salary & broad-market index baselines")
+
+    if total_risk <= 25.0:
+        label = "LOW ETHICS RISK / CLEAN"
+        narrative = f"Exhibits exemplary financial transparency and clean disclosures. Zero to minimal individual stock trading in regulated industries with strong grassroots accountability."
+    elif total_risk <= 50.0:
+        label = "MODERATE CONFLICT RISK"
+        narrative = f"Standard financial profile with moderate corporate PAC receipts and passive investment holdings. No acute statutory violations identified."
+    elif total_risk <= 75.0:
+        label = "ELEVATED JURISDICTION OVERLAP"
+        narrative = f"Notable potential conflicts: active equity trading in industries overseen by assigned committees coupled with significant PAC reliance."
+    else:
+        label = "HIGH ETHICS CONFLICT RISK"
+        narrative = f"Elevated conflict flags: high-frequency trading in regulated industries during active legislative markups alongside substantial unexplained asset gains."
+
+    return CivicEthicsConflictIndex(
+        ethics_risk_score=total_risk,
+        risk_level_label=label,
+        stock_trading_conflict_pts=stock_pts,
+        pac_capture_pts=pac_pts,
+        abnormal_wealth_pts=wealth_pts,
+        conflict_drivers=conflict_drivers,
+        clean_indicators=clean_indicators,
+        ethics_narrative=narrative
+    )
+
 def build_full_profile(bioguide_id: str, timeframe: str = "career") -> CongressionalProfile:
     """
-    Assemble the complete NextGenStats Congressional Profile for a lawmaker.
+    Assemble the complete Congressional Profile for a lawmaker.
     """
     from backend.ingestion.congress_api import get_member_raw_data, generate_member_voting_record
     from backend.ingestion.census_api import get_district_demographics
@@ -746,6 +871,8 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     clutch_stats = calculate_clutch_voting_stats(bio, voting)
     stock_trading = generate_stock_trading_profile(bio, affiliations)
     career_progression = generate_career_progression(bio, raw.get("stats", {}))
+    wealth_pl = calculate_wealth_pl(bio, career_progression)
+    ethics_risk = calculate_ethics_risk(bio, stock_trading, finance, donor_analysis, wealth_pl)
 
     return CongressionalProfile(
         bio=bio,
@@ -759,6 +886,8 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
         stock_trading=stock_trading,
         career_progression=career_progression,
         legislative_pipeline=pipeline,
+        wealth_pl=wealth_pl,
+        ethics_risk=ethics_risk,
         scouting=scouting,
         last_updated=datetime.datetime.now().strftime("%Y-%m-%d")
     )
@@ -1037,7 +1166,12 @@ def get_all_party_rankings() -> PartyRankingsResponse:
             grassroots_pct=p.finance.small_individual_pct,
             pac_dependency=p.finance.pac_contributions_pct,
             clutch_rating=comb.clutch_rating,
-            stock_conflict_index=p.stock_trading.committee_conflict_index
+            stock_conflict_index=p.stock_trading.committee_conflict_index,
+            current_net_worth=p.wealth_pl.current_net_worth,
+            net_worth_growth_dollars=p.wealth_pl.net_worth_growth_dollars,
+            wealth_growth_multiple=p.wealth_pl.wealth_growth_multiple,
+            ethics_risk_score=p.ethics_risk.ethics_risk_score,
+            ethics_risk_label=p.ethics_risk.risk_level_label
         ))
         
     return PartyRankingsResponse(
