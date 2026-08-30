@@ -2018,6 +2018,7 @@
         }
 
         document.getElementById("draftGrade").textContent = scouting.draft_grade;
+        document.getElementById("draftScore").textContent = `${(scouting.overall_score || 80.0).toFixed(1)} / 100 Pts`;
         document.getElementById("draftArchetype").textContent = scouting.draft_archetype;
         document.getElementById("archetypeDesc").textContent = scouting.archetype_description;
 

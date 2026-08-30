@@ -254,6 +254,7 @@ class LegislativePipelineStats(BaseModel):
 
 class ScoutingCard(BaseModel):
     draft_grade: str # Legislative Effectiveness Rating: "A+", "A", "A-", "B+", "B", "C+", etc.
+    overall_score: float = 80.0 # 0 to 100 5-Pillar Score
     draft_archetype: str # Governance Archetype: e.g. "Senior Caucus Leader", "Floor Maverick", "District Pragmatist"
     archetype_description: str
     pro_comparison_name: str # Historical & Policy Alignment Comp

@@ -100,8 +100,10 @@ def calculate_five_pillar_score(
     Produces a realistic, non-inflated distribution across A, B, C, D, and F grades.
     """
     # 1. Legislative Output & Throughput (25 pts max)
-    out_sponsor_pts = min(10.0, (pipeline.bills_sponsored_count * 0.35) + (pipeline.bills_passed_committee_count * 1.5) + (pipeline.bills_enacted_into_law_count * 2.5))
-    out_funding_pts = min(8.0, pipeline.earmarks_secured_millions * 0.25)
+    is_freshman = (bio.terms_served or 1) <= 1
+    freshman_output_calibration = 5.5 if is_freshman else 0.0
+    out_sponsor_pts = min(10.0, (pipeline.bills_sponsored_count * 0.35) + (pipeline.bills_passed_committee_count * 1.5) + (pipeline.bills_enacted_into_law_count * 2.5) + freshman_output_calibration)
+    out_funding_pts = min(8.0, pipeline.earmarks_secured_millions * 0.25 + (2.5 if is_freshman else 0.0))
     out_comm_pts = min(7.0, (len(affiliations.committees) * 1.5) + (4.0 if bio.leadership_role else 0.0))
     p1_score = round(min(25.0, out_sponsor_pts + out_funding_pts + out_comm_pts), 1)
 
@@ -247,8 +249,10 @@ def calculate_five_pillar_score(
         deductions.append(f"-{round(15.0 - p5_score, 1)} pts: Low bipartisan velocity ({voting.bipartisanship_pct}%); strictly straight-ticket voting tendencies.")
     if finance.pac_contributions_pct > 30.0:
         deductions.append(f"-{round(15.0 - p4_score, 1)} pts: Elevated corporate & organizational PAC dependency ({finance.pac_contributions_pct}% of funds).")
-    if pipeline.bills_enacted_into_law_count == 0:
-        deductions.append("-4.0 pts: 0 solo-sponsored bills enacted into law during current congressional career.")
+    if pipeline.bills_enacted_into_law_count == 0 and not is_freshman:
+        deductions.append("-4.0 pts: 0 solo-sponsored bills enacted into law during multi-term career.")
+    elif is_freshman:
+        pos_drivers.append("Tenure Calibration: Freshman cohort benchmarking active for initial legislative term.")
     if voting.abstain_pct > 2.0:
         deductions.append(f"-{round(missed_penalty, 1)} pts: Missed/abstained on {voting.abstain_pct}% of total floor roll calls.")
     if alignment.top_divergence_areas:
@@ -273,7 +277,7 @@ def generate_scouting_card(
     Generate comprehensive Civic Performance Indicators, 5-Pillar Rating, and Analytical Verdict.
     """
     if pipeline is None:
-        pipeline = generate_legislative_pipeline(bio, affiliations, timeframe=timeframe)
+        pipeline = generate_legislative_pipeline(bio, affiliations)
 
     party_loyalty = round(voting.party_unity_pct, 1)
     bipartisanship_velocity = round(min(100.0, voting.bipartisanship_pct * 2.5), 1)
@@ -371,6 +375,7 @@ def generate_scouting_card(
 
     return ScoutingCard(
         draft_grade=draft_grade,
+        overall_score=total_score,
         draft_archetype=archetype,
         archetype_description=arch_desc,
         pro_comparison_name=pro_name,
