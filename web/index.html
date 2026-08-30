@@ -395,7 +395,7 @@
   <!-- ============================================================== -->
   <!-- VIEW 2: LAWMAKER PROFILE DOSSIER                               -->
   <!-- ============================================================== -->
-  <main id="viewProfile" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <main id="viewProfile" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
     <!-- TIMEFRAME & CAREER TERM SELECTOR BAR -->
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
@@ -508,333 +508,233 @@
       </div>
     </div>
 
-    <!-- ROW: APPROVAL RATINGS & SPOUSAL / FAMILY CONFLICT OF INTEREST MATRIX -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-      <!-- Home District Job Approval Rating Card -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="trending-up" class="w-4 h-4 text-cyan-400"></i>
-              <span>Constituent Job Approval & Polling</span>
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Nonpartisan survey aggregation in home district</p>
-          </div>
-          <span id="approvalTrendBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-            ▲ +3.1% Q3 Trend
-          </span>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3 text-center">
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">District Approval</div>
-            <div id="distAppVal" class="text-xl font-black text-emerald-400 mt-1">67.5%</div>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Disapproval</div>
-            <div id="distDisappVal" class="text-xl font-black text-red-400 mt-1">28.0%</div>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Net Favorability</div>
-            <div id="distNetVal" class="text-xl font-black text-cyan-400 mt-1">+39.5%</div>
-          </div>
-        </div>
-
-        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">
-          <div class="flex justify-between text-slate-400">
-            <span>Statewide Net Sentiment:</span>
-            <strong id="statewideAppVal" class="text-slate-200 font-mono">54.2%</strong>
-          </div>
-          <p id="approvalAssessmentText" class="text-[11px] text-slate-300 leading-relaxed mt-1"></p>
-        </div>
-      </div>
-
-      <!-- Spousal & Dynastic Family Conflict of Interest Matrix -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="users-2" class="w-4 h-4 text-purple-400"></i>
-              <span>Spousal & Dynastic Family Conflict Matrix</span>
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Spouse CEO/board roles, family trusts & business stakes</p>
-          </div>
-          <span id="spousalRiskBadge" class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-400 border border-emerald-800">
-            CLEAN / NO SPOUSAL CONFLICT
-          </span>
-        </div>
-
-        <div id="familyConflictsBox" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2.5 text-xs"></div>
-      </div>
-
-    </div>
-
-    <!-- ROW: SUPER PAC DARK MONEY TRACKER & STAFF WORKPLACE METER -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-      <!-- Super PAC & Outside Dark Money Tracker -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="dollar-sign" class="w-4 h-4 text-amber-400"></i>
-              <span>Super PAC & Outside Dark Money Tracker</span>
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Independent expenditures spending for vs. against lawmaker</p>
-          </div>
-          <span id="darkMoneyRatioBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800 font-mono">
-            42% Outside Ratio
-          </span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 text-center">
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Outside Support Spending</div>
-            <div id="outsideSupportVal" class="text-lg font-black text-emerald-400 mt-1">$2.1M</div>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Outside Opposition / Attacks</div>
-            <div id="outsideOpposeVal" class="text-lg font-black text-red-400 mt-1">$6.3M</div>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Top Independent Super PACs:</div>
-          <div id="superPacList" class="space-y-1.5"></div>
-        </div>
-      </div>
-
-      <!-- Institutional Workplace & Staff Turnover Index -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="building-2" class="w-4 h-4 text-cyan-400"></i>
-              <span>Workplace Culture & K-Street Revolving Door</span>
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Staff turnover rates, office stability & lobbyist migration</p>
-          </div>
-          <span id="staffGradeBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-            A (Low Churn)
-          </span>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2 text-center text-xs">
-          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-            <div class="text-[10px] text-slate-500 font-semibold">Annual Staff Churn</div>
-            <div id="staffTurnoverVal" class="font-bold text-slate-200 mt-0.5">21.5%</div>
-            <div class="text-[9px] text-slate-500 mt-0.5">Median: 38%</div>
-          </div>
-          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-            <div class="text-[10px] text-slate-500 font-semibold">Hearing Presence</div>
-            <div id="hearingAttendVal" class="font-bold text-cyan-400 mt-0.5">96.0%</div>
-            <div class="text-[9px] text-slate-500 mt-0.5">Committee Markups</div>
-          </div>
-          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-            <div class="text-[10px] text-slate-500 font-semibold">Revolving Door</div>
-            <div id="revolvingDoorVal" class="font-bold text-emerald-400 mt-0.5">0 Staff</div>
-            <div class="text-[9px] text-slate-500 mt-0.5">K-Street Lobbyists</div>
-          </div>
-        </div>
-
-        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
-          <div class="flex justify-between text-slate-400 text-[11px]">
-            <span>Bipartisan Amendment Adoption Rate:</span>
-            <strong id="amendmentRateVal" class="text-cyan-400 font-mono">74.0%</strong>
-          </div>
-          <p id="workplaceSummaryText" class="text-[11px] text-slate-300 leading-relaxed"></p>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ROW: CONGRESSIONAL CORRUPTION & SCANDAL WATCH & WEALTH P&L -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-      <!-- Congressional Corruption & Scandal Watch Card -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="shield-alert" class="w-4 h-4 text-cyan-400"></i>
-              <span>Corruption & Scandal Watch Index</span>
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">STOCK Act trading, dark money capture & oversight inquiries</p>
-          </div>
-          <button onclick="openEthicsModal()" class="px-2.5 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 text-cyan-400 border border-cyan-800 text-xs font-bold flex items-center gap-1">
-            <span>Ethics Audit</span> &rarr;
-          </button>
-        </div>
-
-        <div class="flex items-center justify-between bg-slate-950 p-3.5 rounded-xl border border-slate-800">
-          <div>
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Risk Level Assessment</div>
-            <div id="ethicsRiskLabel" class="text-sm font-black text-emerald-400 mt-0.5">CLEAN RECORD / LOW RISK</div>
-          </div>
-          <div class="text-right">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Scandal Risk Score</div>
-            <div id="ethicsRiskScore" class="text-2xl font-black text-white font-mono">12.4 <span class="text-xs text-slate-500 font-normal">/ 100</span></div>
-          </div>
-        </div>
-
-        <!-- 4 Scandal Pillars Progress Bars -->
-        <div class="space-y-2 text-xs">
-          <div>
-            <div class="flex justify-between text-[11px] mb-0.5">
-              <span class="text-slate-400">STOCK Act & Committee Conflicts (35 pts max):</span>
-              <span id="ethStockPts" class="text-slate-200 font-mono font-bold">0.0 / 35</span>
-            </div>
-            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthStock" class="bg-cyan-500 h-1.5 rounded-full" style="width: 0%"></div></div>
-          </div>
-          <div>
-            <div class="flex justify-between text-[11px] mb-0.5">
-              <span class="text-slate-400">PAC & Dark Money Capture (30 pts max):</span>
-              <span id="ethPacPts" class="text-slate-200 font-mono font-bold">2.0 / 30</span>
-            </div>
-            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthPac" class="bg-purple-500 h-1.5 rounded-full" style="width: 7%"></div></div>
-          </div>
-          <div>
-            <div class="flex justify-between text-[11px] mb-0.5">
-              <span class="text-slate-400">Abnormal Wealth Acceleration (20 pts max):</span>
-              <span id="ethWealthPts" class="text-slate-200 font-mono font-bold">3.0 / 20</span>
-            </div>
-            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthWealth" class="bg-emerald-500 h-1.5 rounded-full" style="width: 15%"></div></div>
-          </div>
-          <div>
-            <div class="flex justify-between text-[11px] mb-0.5">
-              <span class="text-slate-400">Ethics Inquiries & Disciplinary Record (15 pts max):</span>
-              <span id="ethOversightPts" class="text-slate-200 font-mono font-bold">0.0 / 15</span>
-            </div>
-            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthOversight" class="bg-red-500 h-1.5 rounded-full" style="width: 0%"></div></div>
-          </div>
-        </div>
-
-        <div class="space-y-1">
-          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Key Ethics Indicators:</div>
-          <ul id="ethicsFactorsList" class="text-xs text-slate-300 space-y-1"></ul>
-        </div>
-      </div>
-
-      <!-- Congressional Wealth Gain / P&L Card -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
-            <span>Congressional Wealth P&L & Trajectory</span>
-          </h2>
-          <span class="info-btn" onclick="openInfoModal('wealth_pl')">ℹ</span>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Starting Net Worth</div>
-            <div id="plStartingNW" class="text-base font-black text-slate-200 mt-1">$50k</div>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Current Net Worth</div>
-            <div id="plCurrentNW" class="text-base font-black text-emerald-400 mt-1">$125k</div>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Net Worth Gain</div>
-            <div id="plNetWorthGain" class="text-base font-black text-cyan-400 mt-1">+$75k</div>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Growth Multiple</div>
-            <div id="plGrowthMultiple" class="text-base font-black text-amber-400 mt-1">2.5x</div>
-          </div>
-        </div>
-
-        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
-          <div class="flex justify-between text-xs text-slate-400">
-            <span>Cumulative Congressional Salary Earned:</span>
-            <strong id="plSalaryEarned" class="text-slate-200 font-mono">$1.39M</strong>
-          </div>
-          <p id="plAssessmentText" class="text-xs text-slate-300 leading-relaxed"></p>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- VOTER POCKETBOOK & HOUSEHOLD WALLET SCORECARD -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+    <!-- ============================================================== -->
+    <!-- PILLAR 1: LEGISLATIVE OUTPUT & STATUTORY THROUGHPUT (25 PTS)    -->
+    <!-- ============================================================== -->
+    <div class="space-y-4">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+        <div class="w-7 h-7 rounded-lg bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400 font-black text-xs">P1</div>
         <div>
-          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-            <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
-            <span>Voter Pocketbook & Household Wallet Scorecard</span>
+          <h2 class="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <span>Pillar 1: Legislative Output & Statutory Throughput</span>
+            <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800">25 Pts Max</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">How this lawmaker voted on everyday cost-of-living, prescription drug, and inflation bills</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-slate-400">Pocketbook Score:</span>
-          <span id="walletScoreBadge" class="px-2.5 py-0.5 rounded text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">80.0% (B)</span>
+          <p class="text-xs text-slate-400">Bills sponsored, committee markups passed, federal laws enacted, and earmarks</p>
         </div>
       </div>
 
-      <div id="walletVotesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Legislative Output Pipeline & Earmarks (5 cols) -->
+        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="file-check" class="w-4 h-4 text-emerald-400"></i>
+              <span>Pipeline & Direct Appropriations</span>
+            </h3>
+            <span class="info-btn" onclick="openInfoModal('pipeline')">ℹ</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase">Bills Sponsored</div>
+              <div id="billsSponsored" class="text-xl font-black text-white mt-1">17</div>
+            </div>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase">Passed Committee</div>
+              <div id="billsPassedComm" class="text-xl font-black text-cyan-400 mt-1">4</div>
+            </div>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase">Enacted Into Law</div>
+              <div id="billsEnacted" class="text-xl font-black text-emerald-400 mt-1">1</div>
+            </div>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase">District Earmarks</div>
+              <div id="earmarksSecured" class="text-xl font-black text-amber-400 mt-1">$19.9M</div>
+            </div>
+          </div>
+
+          <p id="earmarksSummary" class="text-xs text-slate-400 bg-slate-950 p-3 rounded-xl border border-slate-800/80 leading-relaxed"></p>
+        </div>
+
+        <!-- Policy Verticals & Bill Archive Grid (7 cols) -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-cyan-400"></i>
+                <span>Policy Verticals & Landmark Bill Archive</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Click any vertical below to open plain-English bill breakdowns and votes.</p>
+            </div>
+            <span class="info-btn" onclick="openInfoModal('policy_verticals')">ℹ</span>
+          </div>
+
+          <div id="policyCategoriesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+        </div>
+
+      </div>
     </div>
 
-    <!-- ROW: RHETORIC VS REALITY PLEDGE AUDIT & 2026 CHALLENGER PREVIEW -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-      
-      <!-- Rhetoric vs Reality Audit (8 cols) -->
-      <div class="md:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+    <!-- ============================================================== -->
+    <!-- PILLAR 2: CONSTITUENT & DISTRICT FIDELITY (25 PTS)              -->
+    <!-- ============================================================== -->
+    <div class="space-y-4">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+        <div class="w-7 h-7 rounded-lg bg-emerald-950 border border-emerald-800 flex items-center justify-center text-emerald-400 font-black text-xs">P2</div>
+        <div>
+          <h2 class="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <span>Pillar 2: Constituent & District Fidelity</span>
+            <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">25 Pts Max</span>
+          </h2>
+          <p class="text-xs text-slate-400">Census socioeconomic alignment, home district polling approval, and pocketbook voting</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- District Demographics Card (4 cols) -->
+        <div onclick="openDistrictModal()" class="lg:col-span-4 clickable-card bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3 group hover:border-cyan-500">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5 group-hover:text-cyan-400 transition-colors">
+              <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
+              <span>Census ACS Demographics</span>
+            </h3>
+            <span class="text-[9px] font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
+              FULL DOSSIER &rarr;
+            </span>
+          </div>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Click to inspect detailed Census ACS socioeconomic deciles correlated directly against roll call votes.
+          </p>
+
+          <div class="grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
+              <div class="text-[10px] text-slate-500 font-semibold">Median Income</div>
+              <div id="distIncome" class="font-bold text-slate-200 mt-0.5">$68,500</div>
+            </div>
+            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
+              <div class="text-[10px] text-slate-500 font-semibold">Poverty Rate</div>
+              <div id="distPoverty" class="font-bold text-slate-200 mt-0.5">16.4%</div>
+            </div>
+            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
+              <div class="text-[10px] text-slate-500 font-semibold">SNAP Food Aid</div>
+              <div id="distSnap" class="font-bold text-cyan-400 mt-0.5">22.4%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Home District Approval & Polling Card (4 cols) -->
+        <div class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="trending-up" class="w-4 h-4 text-cyan-400"></i>
+              <span>District Job Approval</span>
+            </h3>
+            <span id="approvalTrendBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+              ▲ +3.1% Q3 Trend
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <div class="text-[9px] font-bold text-slate-400 uppercase">Approve</div>
+              <div id="distAppVal" class="text-base font-black text-emerald-400 mt-0.5">67.5%</div>
+            </div>
+            <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <div class="text-[9px] font-bold text-slate-400 uppercase">Disapprove</div>
+              <div id="distDisappVal" class="text-base font-black text-red-400 mt-0.5">28.0%</div>
+            </div>
+            <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <div class="text-[9px] font-bold text-slate-400 uppercase">Net Margin</div>
+              <div id="distNetVal" class="text-base font-black text-cyan-400 mt-0.5">+39.5%</div>
+            </div>
+          </div>
+
+          <p id="approvalAssessmentText" class="text-[11px] text-slate-300 leading-relaxed bg-slate-950 p-2.5 rounded-lg border border-slate-800/80"></p>
+        </div>
+
+        <!-- Constituent Sync Gauge (4 cols) -->
+        <div class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="target" class="w-4 h-4 text-emerald-400"></i>
+              <span>Constituent Sync Score</span>
+            </h3>
+            <span class="info-btn" onclick="openInfoModal('constituent_sync')">ℹ</span>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="text-slate-400">Demographic Need Match</span>
+              <span id="valConstSync" class="text-slate-100 font-mono font-bold">88.5%</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div id="barConstSync" class="bg-cyan-500 h-2 rounded-full transition-all duration-500" style="width: 88.5%"></div>
+            </div>
+          </div>
+
+          <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px] text-slate-300 flex justify-between">
+            <span>Statewide Public Favorability:</span>
+            <strong id="statewideAppVal" class="text-cyan-400 font-mono">54.2%</strong>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Voter Pocketbook & Household Wallet Scorecard -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
-              <span>Rhetoric vs. Reality Audit (Pledges vs. Floor Votes)</span>
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Auditing public campaign statements against official recorded roll calls</p>
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
+              <span>Voter Pocketbook & Household Wallet Scorecard</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Recorded votes on cost-of-living, prescription drug relief, and tax deductions</p>
           </div>
-          <button onclick="openRhetoricModal()" class="px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-800 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
-            <i data-lucide="list-checks" class="w-3.5 h-3.5"></i>
-            <span>Full Audit Dossier (<span id="rhetoricTotalCount">0</span> Pledges) &rarr;</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">Pocketbook Grade:</span>
+            <span id="walletScoreBadge" class="px-2.5 py-0.5 rounded text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">80.0% (B)</span>
+          </div>
         </div>
 
-        <div id="rhetoricAuditsList" class="space-y-3"></div>
-      </div>
-
-      <!-- 2026 Challenger & Election Matchup (4 cols) -->
-      <div class="md:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-            <i data-lucide="users" class="w-4 h-4 text-purple-400"></i>
-            <span>2026 Election Preview</span>
-          </h2>
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800">Campaign</span>
-        </div>
-
-        <div id="challengerPreviewBox" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3"></div>
+        <div id="walletVotesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
       </div>
 
     </div>
 
-    <!-- MAIN PROFILE GRID: 2 COLUMNS -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- ============================================================== -->
+    <!-- PILLAR 3: FLOOR ATTENDANCE & RELIABILITY (20 PTS)               -->
+    <!-- ============================================================== -->
+    <div class="space-y-4">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+        <div class="w-7 h-7 rounded-lg bg-blue-950 border border-blue-800 flex items-center justify-center text-blue-400 font-black text-xs">P3</div>
+        <div>
+          <h2 class="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <span>Pillar 3: Floor Attendance & Procedural Reliability</span>
+            <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">20 Pts Max</span>
+          </h2>
+          <p class="text-xs text-slate-400">Participation in official clerk roll calls, committee markups, and career tenure progression</p>
+        </div>
+      </div>
 
-      <!-- LEFT COLUMN: PERFORMANCE INDICATORS & DEMOGRAPHICS (5 cols) -->
-      <div class="lg:col-span-5 space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        <!-- CIVIC PERFORMANCE INDICATORS -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
-              <span>Civic Performance Indicators</span>
-            </h2>
-            <span class="info-btn" onclick="openInfoModal('civic_indicators')">ℹ</span>
+        <!-- Attendance & Clutch Voting Stats (5 cols) -->
+        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i>
+              <span>Floor Roll Call Attendance</span>
+            </h3>
+            <span class="info-btn" onclick="openInfoModal('attendance')">ℹ</span>
           </div>
 
-          <div class="space-y-3.5">
+          <div class="space-y-3">
             <div>
               <div class="flex justify-between text-xs font-semibold mb-1">
-                <span class="text-slate-400 flex items-center gap-1">
-                  <span>Floor Roll Call Attendance</span>
-                  <span class="info-btn" onclick="openInfoModal('attendance')">ℹ</span>
-                </span>
+                <span class="text-slate-400">Roll Call Voting Participation</span>
                 <span id="valAttendance" class="text-slate-100 font-mono font-bold">98.2%</span>
               </div>
               <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
@@ -842,19 +742,275 @@
               </div>
             </div>
 
-            <div>
-              <div class="flex justify-between text-xs font-semibold mb-1">
-                <span class="text-slate-400 flex items-center gap-1">
-                  <span>Constituent Demographic Sync</span>
-                  <span class="info-btn" onclick="openInfoModal('constituent_sync')">ℹ</span>
-                </span>
-                <span id="valConstSync" class="text-slate-100 font-mono font-bold">88.5%</span>
+            <div class="grid grid-cols-2 gap-3 pt-2">
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+                <div class="text-[10px] text-slate-500 font-semibold">Committee Hearings</div>
+                <div id="hearingAttendVal" class="text-base font-bold text-cyan-400 mt-0.5">96.0%</div>
               </div>
-              <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-                <div id="barConstSync" class="bg-cyan-500 h-2 rounded-full transition-all duration-500" style="width: 88.5%"></div>
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+                <div class="text-[10px] text-slate-500 font-semibold">Staff Retention</div>
+                <div id="staffGradeBadge" class="text-xs font-bold text-emerald-400 mt-1">A (Low Churn)</div>
               </div>
             </div>
+          </div>
+        </div>
 
+        <!-- Year-over-Year Career Progression Timeline (7 cols) -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="line-chart" class="w-4 h-4 text-cyan-400"></i>
+                <span>Year-over-Year Career Progression</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Term-by-term asset evolution and bipartisanship velocity</p>
+            </div>
+            <span class="info-btn" onclick="openInfoModal('progression')">ℹ</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead class="text-[10px] text-slate-500 uppercase bg-slate-950">
+                <tr>
+                  <th class="p-2 rounded-l-lg">Era / Term</th>
+                  <th class="p-2">Year</th>
+                  <th class="p-2">Est. Net Worth</th>
+                  <th class="p-2">Bipartisanship</th>
+                  <th class="p-2">Party Unity</th>
+                  <th class="p-2 rounded-r-lg">Ideological Lean</th>
+                </tr>
+              </thead>
+              <tbody id="careerTimelineTableBody" class="divide-y divide-slate-800 text-slate-300"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- PILLAR 4: SPECIAL INTEREST & ETHICS INDEPENDENCE (15 PTS)       -->
+    <!-- ============================================================== -->
+    <div class="space-y-4">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+        <div class="w-7 h-7 rounded-lg bg-amber-950 border border-amber-800 flex items-center justify-center text-amber-400 font-black text-xs">P4</div>
+        <div>
+          <h2 class="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <span>Pillar 4: Special Interest & Ethics Independence</span>
+            <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-800">15 Pts Max</span>
+          </h2>
+          <p class="text-xs text-slate-400">STOCK Act trading, dark money Super PACs, family business ties, and congressional wealth gain</p>
+        </div>
+      </div>
+
+      <!-- ROW 1: CORRUPTION INDEX & WEALTH P&L -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Corruption & Scandal Watch Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-cyan-400"></i>
+                <span>Corruption & Scandal Watch Index</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">STOCK Act trading, dark money capture & oversight inquiries</p>
+            </div>
+            <button onclick="openEthicsModal()" class="px-2.5 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 text-cyan-400 border border-cyan-800 text-xs font-bold flex items-center gap-1">
+              <span>Ethics Audit</span> &rarr;
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+            <div>
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Risk Level Assessment</div>
+              <div id="ethicsRiskLabel" class="text-sm font-black text-emerald-400 mt-0.5">CLEAN RECORD / LOW RISK</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Scandal Risk Score</div>
+              <div id="ethicsRiskScore" class="text-2xl font-black text-white font-mono">12.4 <span class="text-xs text-slate-500 font-normal">/ 100</span></div>
+            </div>
+          </div>
+
+          <!-- 4 Scandal Pillars Progress Bars -->
+          <div class="space-y-2 text-xs">
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="text-slate-400">STOCK Act & Committee Conflicts (35 pts max):</span>
+                <span id="ethStockPts" class="text-slate-200 font-mono font-bold">0.0 / 35</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthStock" class="bg-cyan-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="text-slate-400">PAC & Dark Money Capture (30 pts max):</span>
+                <span id="ethPacPts" class="text-slate-200 font-mono font-bold">2.0 / 30</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthPac" class="bg-purple-500 h-1.5 rounded-full" style="width: 7%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="text-slate-400">Abnormal Wealth Acceleration (20 pts max):</span>
+                <span id="ethWealthPts" class="text-slate-200 font-mono font-bold">3.0 / 20</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthWealth" class="bg-emerald-500 h-1.5 rounded-full" style="width: 15%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="text-slate-400">Ethics Inquiries & Disciplinary Record (15 pts max):</span>
+                <span id="ethOversightPts" class="text-slate-200 font-mono font-bold">0.0 / 15</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthOversight" class="bg-red-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Key Ethics Indicators:</div>
+            <ul id="ethicsFactorsList" class="text-xs text-slate-300 space-y-1"></ul>
+          </div>
+        </div>
+
+        <!-- Congressional Wealth Gain / P&L Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+              <span>Congressional Wealth Gain & P&L Trajectory</span>
+            </h3>
+            <span class="info-btn" onclick="openInfoModal('wealth_pl')">ℹ</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Starting Net Worth</div>
+              <div id="plStartingNW" class="text-base font-black text-slate-200 mt-1">$50k</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Current Net Worth</div>
+              <div id="plCurrentNW" class="text-base font-black text-emerald-400 mt-1">$125k</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Net Worth Gain</div>
+              <div id="plNetWorthGain" class="text-base font-black text-cyan-400 mt-1">+$75k</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Growth Multiple</div>
+              <div id="plGrowthMultiple" class="text-base font-black text-amber-400 mt-1">2.5x</div>
+            </div>
+          </div>
+
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+            <div class="flex justify-between text-xs text-slate-400">
+              <span>Cumulative Congressional Salary Earned:</span>
+              <strong id="plSalaryEarned" class="text-slate-200 font-mono">$1.39M</strong>
+            </div>
+            <p id="plAssessmentText" class="text-xs text-slate-300 leading-relaxed"></p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ROW 2: SPOUSAL/FAMILY CONFLICTS & SUPER PAC TRACKER -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Spousal & Dynastic Family Conflict Matrix -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="users-2" class="w-4 h-4 text-purple-400"></i>
+                <span>Spousal & Dynastic Family Conflict Matrix</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Spouse CEO/board roles, family trusts & business stakes</p>
+            </div>
+            <span id="spousalRiskBadge" class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-400 border border-emerald-800">
+              CLEAN / NO SPOUSAL CONFLICT
+            </span>
+          </div>
+
+          <div id="familyConflictsBox" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2.5 text-xs"></div>
+        </div>
+
+        <!-- Super PAC & Outside Dark Money Tracker -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="dollar-sign" class="w-4 h-4 text-amber-400"></i>
+                <span>Super PAC & Outside Dark Money Tracker</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Independent expenditures spending for vs. against lawmaker</p>
+            </div>
+            <span id="darkMoneyRatioBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800 font-mono">
+              42% Outside Ratio
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Outside Support Spending</div>
+              <div id="outsideSupportVal" class="text-lg font-black text-emerald-400 mt-1">$2.1M</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Outside Opposition / Attacks</div>
+              <div id="outsideOpposeVal" class="text-lg font-black text-red-400 mt-1">$6.3M</div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Top Independent Super PACs:</div>
+            <div id="superPacList" class="space-y-1.5"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ROW 3: CONSTITUENTS VS DONORS TUG-OF-WAR MATRIX -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="scale" class="w-4 h-4 text-purple-400"></i>
+              <span>Constituents vs Special Interest Donors (Tug-of-War Matrix)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Sector-by-sector alignment: where campaign money comes from vs district needs</p>
+          </div>
+          <span class="info-btn" onclick="openInfoModal('tug_of_war')">ℹ</span>
+        </div>
+
+        <div class="space-y-2" id="donorTugOfWarList"></div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- PILLAR 5: BIPARTISANSHIP & COALITION BUILDING (15 PTS)          -->
+    <!-- ============================================================== -->
+    <div class="space-y-4">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+        <div class="w-7 h-7 rounded-lg bg-purple-950 border border-purple-800 flex items-center justify-center text-purple-400 font-black text-xs">P5</div>
+        <div>
+          <h2 class="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <span>Pillar 5: Bipartisanship & Coalition Building</span>
+            <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-purple-950 text-purple-400 border border-purple-800">15 Pts Max</span>
+          </h2>
+          <p class="text-xs text-slate-400">Cross-party co-sponsorship velocity, party unity, and K-Street revolving door migration</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Bipartisanship & Party Line Gauges (6 cols) -->
+        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="handshake" class="w-4 h-4 text-cyan-400"></i>
+              <span>Cross-Aisle & Party Line Indicators</span>
+            </h3>
+            <span class="info-btn" onclick="openInfoModal('bipartisanship')">ℹ</span>
+          </div>
+
+          <div class="space-y-3.5">
             <div>
               <div class="flex justify-between text-xs font-semibold mb-1">
                 <span class="text-slate-400 flex items-center gap-1">
@@ -896,140 +1052,96 @@
           </div>
         </div>
 
-        <!-- LEGISLATIVE OUTPUT PIPELINE & EARMARKS -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="file-check" class="w-4 h-4 text-emerald-400"></i>
-              <span>Legislative Output & Earmarks</span>
-            </h2>
-            <span class="info-btn" onclick="openInfoModal('pipeline')">ℹ</span>
+        <!-- Workplace Culture & Revolving Door (6 cols) -->
+        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="building-2" class="w-4 h-4 text-cyan-400"></i>
+                <span>Workplace Culture & Revolving Door</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Staff turnover rates and K-Street corporate lobbyist migration</p>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800">Casework</span>
           </div>
 
-          <div class="grid grid-cols-2 gap-3 text-center">
-            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
-              <div class="text-[11px] font-semibold text-slate-400 uppercase">Bills Sponsored</div>
-              <div id="billsSponsored" class="text-xl font-black text-white mt-1">17</div>
+          <div class="grid grid-cols-2 gap-3 text-center text-xs">
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-500 font-semibold">Annual Staff Churn</div>
+              <div id="staffTurnoverVal" class="text-base font-bold text-slate-200 mt-0.5">21.5%</div>
+              <div class="text-[9px] text-slate-500 mt-0.5">Median: 38%</div>
             </div>
-            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
-              <div class="text-[11px] font-semibold text-slate-400 uppercase">Passed Committee</div>
-              <div id="billsPassedComm" class="text-xl font-black text-cyan-400 mt-1">4</div>
-            </div>
-            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
-              <div class="text-[11px] font-semibold text-slate-400 uppercase">Enacted Into Law</div>
-              <div id="billsEnacted" class="text-xl font-black text-emerald-400 mt-1">1</div>
-            </div>
-            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
-              <div class="text-[11px] font-semibold text-slate-400 uppercase">District Earmarks</div>
-              <div id="earmarksSecured" class="text-xl font-black text-amber-400 mt-1">$19.9M</div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-500 font-semibold">Revolving Door</div>
+              <div id="revolvingDoorVal" class="text-base font-bold text-emerald-400 mt-0.5">0 Staff</div>
+              <div class="text-[9px] text-slate-500 mt-0.5">K-Street Lobbyists</div>
             </div>
           </div>
 
-          <p id="earmarksSummary" class="text-xs text-slate-400 bg-slate-950 p-3 rounded-xl border border-slate-800/80 leading-relaxed"></p>
-        </div>
-
-        <!-- CLICKABLE DISTRICT DEMOGRAPHICS CORRELATION CARD -->
-        <div onclick="openDistrictModal()" class="clickable-card bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3 group hover:border-cyan-500">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2 group-hover:text-cyan-400 transition-colors">
-              <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
-              <span>District Demographics & Alignment</span>
-            </h2>
-            <span class="text-[10px] font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
-              FULL DOSSIER &rarr;
-            </span>
-          </div>
-
-          <p class="text-xs text-slate-400 leading-relaxed">
-            Click to inspect detailed Census ACS socioeconomic deciles correlated directly against roll call votes.
-          </p>
-
-          <div class="grid grid-cols-3 gap-2 text-center text-xs">
-            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
-              <div class="text-[10px] text-slate-500 font-semibold">Median Income</div>
-              <div id="distIncome" class="font-bold text-slate-200 mt-0.5">$68,500</div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+            <div class="flex justify-between text-slate-400 text-[11px]">
+              <span>Bipartisan Amendment Adoption Rate:</span>
+              <strong id="amendmentRateVal" class="text-cyan-400 font-mono">74.0%</strong>
             </div>
-            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
-              <div class="text-[10px] text-slate-500 font-semibold">Poverty Rate</div>
-              <div id="distPoverty" class="font-bold text-slate-200 mt-0.5">16.4%</div>
-            </div>
-            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
-              <div class="text-[10px] text-slate-500 font-semibold">SNAP / Food Aid</div>
-              <div id="distSnap" class="font-bold text-cyan-400 mt-0.5">22.4%</div>
-            </div>
+            <p id="workplaceSummaryText" class="text-[11px] text-slate-300 leading-relaxed"></p>
           </div>
         </div>
 
       </div>
-
-      <!-- RIGHT COLUMN: POLICY ARCHIVE, TUG-OF-WAR, CAREER TIMELINE (7 cols) -->
-      <div class="lg:col-span-7 space-y-6">
-
-        <!-- CONSTITUENTS VS DONORS TUG-OF-WAR MATRIX -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div>
-              <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                <i data-lucide="scale" class="w-4 h-4 text-purple-400"></i>
-                <span>Constituents vs Special Interest Donors</span>
-              </h2>
-              <p class="text-xs text-slate-400 mt-0.5">Sector-by-sector alignment: where campaign money comes from vs district needs</p>
-            </div>
-            <span class="info-btn" onclick="openInfoModal('tug_of_war')">ℹ</span>
-          </div>
-
-          <div class="space-y-2" id="donorTugOfWarList"></div>
-        </div>
-
-        <!-- YEAR-OVER-YEAR CAREER & WEALTH PROGRESSION TIMELINE -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div>
-              <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                <i data-lucide="line-chart" class="w-4 h-4 text-cyan-400"></i>
-                <span>Year-over-Year Career & Wealth Progression</span>
-              </h2>
-              <p class="text-xs text-slate-400 mt-0.5">Term-by-term asset evolution and bipartisanship velocity</p>
-            </div>
-            <span class="info-btn" onclick="openInfoModal('progression')">ℹ</span>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-xs text-left">
-              <thead class="text-[10px] text-slate-500 uppercase bg-slate-950">
-                <tr>
-                  <th class="p-2 rounded-l-lg">Era / Term</th>
-                  <th class="p-2">Year</th>
-                  <th class="p-2">Est. Net Worth</th>
-                  <th class="p-2">Bipartisanship</th>
-                  <th class="p-2">Party Unity</th>
-                  <th class="p-2 rounded-r-lg">Ideological Lean</th>
-                </tr>
-              </thead>
-              <tbody id="careerTimelineTableBody" class="divide-y divide-slate-800 text-slate-300"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- POLICY VERTICALS DRILL-DOWN GRID -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                <i data-lucide="pie-chart" class="w-4 h-4 text-cyan-400"></i>
-                <span>Voting History & Policy Verticals</span>
-              </h2>
-              <p class="text-xs text-slate-400 mt-0.5">Click any category card below to view plain-English bill breakdowns.</p>
-            </div>
-            <span class="info-btn" onclick="openInfoModal('policy_verticals')">ℹ</span>
-          </div>
-
-          <div id="policyCategoriesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-        </div>
-
-      </div>
-
     </div>
+
+    <!-- ============================================================== -->
+    <!-- SECTION 6: CANDIDATE ACCOUNTABILITY & 2026 ELECTION CONTEXT     -->
+    <!-- ============================================================== -->
+    <div class="space-y-4 pt-2">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+        <div class="w-7 h-7 rounded-lg bg-indigo-950 border border-indigo-800 flex items-center justify-center text-indigo-400 font-black text-xs">📜</div>
+        <div>
+          <h2 class="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <span>Candidate Accountability & Campaign Context</span>
+          </h2>
+          <p class="text-xs text-slate-400">Auditing public campaign promises against recorded roll calls & 2026 challengers</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Rhetoric vs Reality Audit (8 cols) -->
+        <div class="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+                <span>Rhetoric vs. Reality Audit (Pledges vs. Floor Votes)</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Auditing public campaign statements against official recorded roll calls</p>
+            </div>
+            <button onclick="openRhetoricModal()" class="px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-800 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+              <i data-lucide="list-checks" class="w-3.5 h-3.5"></i>
+              <span>Full Audit Dossier (<span id="rhetoricTotalCount">0</span> Pledges) &rarr;</span>
+            </button>
+          </div>
+
+          <div id="rhetoricAuditsList" class="space-y-3"></div>
+        </div>
+
+        <!-- 2026 Challenger & Election Matchup (4 cols) -->
+        <div class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4 text-purple-400"></i>
+              <span>2026 Election Preview</span>
+            </h3>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800">Campaign</span>
+          </div>
+
+          <div id="challengerPreviewBox" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
 
   </main>
 
