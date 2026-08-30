@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Congress Civic Analytics | Lawmaker Dossiers, Leaderboards & Corruption Watch</title>
+  <title>Congress Civic Analytics | Lawmaker Dossiers, Family Conflicts & Super PAC Watch</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -169,7 +169,7 @@
             <span class="font-black text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">CONGRESS</span>
             <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-cyan-950 text-cyan-400 border border-cyan-800 uppercase tracking-wider">CIVIC ANALYTICS</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-medium -mt-0.5">Nonpartisan Lawmaker Dossiers & Corruption Watch</p>
+          <p class="text-[11px] text-slate-400 font-medium -mt-0.5">Nonpartisan Lawmaker Dossiers, Family Conflicts & Super PACs</p>
         </div>
       </div>
 
@@ -231,7 +231,7 @@
             </span>
             <span class="text-xs text-slate-400">537 Lawmakers Tracked &bull; Standard 10-Point Scale</span>
           </div>
-          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Congressional Power Rankings & Corruption Watch</h1>
+          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Congressional Power Rankings & Accountability</h1>
           <p class="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
             Nonpartisan rankings measuring institutional output, constituent fidelity, campaign funding independence, and congressional wealth trajectories on a standard 100-point scale (A: 90-100, B: 80-89, C: 70-79, D: 60-69, F: &lt;60).
           </p>
@@ -318,14 +318,15 @@
           <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Sort By Metric</label>
           <select id="mainRankSortMetric" onchange="filterAndRenderRankings()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-bold text-cyan-400">
             <option value="overall_score">🌟 Overall 5-Pillar Score (0-100 / Grade A-F)</option>
+            <option value="approval_pct">📈 Home District Job Approval %</option>
             <option value="ethics_risk_score">🛡️ Corruption & Scandal Risk (0-100 Cleanest First)</option>
             <option value="floor_attendance">🗳️ Floor Roll Call Attendance %</option>
             <option value="constituent_sync">🎯 Constituent Demographic Sync %</option>
             <option value="bipartisanship_velocity">🤝 Bipartisanship Velocity %</option>
             <option value="grassroots_pct">💜 Grassroots Small-Dollar Funding % (&lt;$200)</option>
+            <option value="dark_money_millions">💰 Outside Super PAC Spending ($M)</option>
+            <option value="staff_turnover_pct">👥 Congressional Staff Turnover % (Lowest Churn First)</option>
             <option value="bills_enacted">🏛️ Bills Enacted Into Federal Law</option>
-            <option value="bills_sponsored">📜 Total Bills Sponsored</option>
-            <option value="earmarks_millions">💰 Community Earmarks Secured ($M)</option>
             <option value="wealth_growth_multiple">📈 Net Worth Growth Multiple in Office</option>
           </select>
         </div>
@@ -504,6 +505,147 @@
       </div>
     </div>
 
+    <!-- ROW: APPROVAL RATINGS & SPOUSAL / FAMILY CONFLICT OF INTEREST MATRIX -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Home District Job Approval Rating Card -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="trending-up" class="w-4 h-4 text-cyan-400"></i>
+              <span>Constituent Job Approval & Polling</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Nonpartisan survey aggregation in home district</p>
+          </div>
+          <span id="approvalTrendBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+            ▲ +3.1% Q3 Trend
+          </span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">District Approval</div>
+            <div id="distAppVal" class="text-xl font-black text-emerald-400 mt-1">67.5%</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Disapproval</div>
+            <div id="distDisappVal" class="text-xl font-black text-red-400 mt-1">28.0%</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Net Favorability</div>
+            <div id="distNetVal" class="text-xl font-black text-cyan-400 mt-1">+39.5%</div>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">
+          <div class="flex justify-between text-slate-400">
+            <span>Statewide Net Sentiment:</span>
+            <strong id="statewideAppVal" class="text-slate-200 font-mono">54.2%</strong>
+          </div>
+          <p id="approvalAssessmentText" class="text-[11px] text-slate-300 leading-relaxed mt-1"></p>
+        </div>
+      </div>
+
+      <!-- Spousal & Dynastic Family Conflict of Interest Matrix -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="users-2" class="w-4 h-4 text-purple-400"></i>
+              <span>Spousal & Dynastic Family Conflict Matrix</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Spouse CEO/board roles, family trusts & business stakes</p>
+          </div>
+          <span id="spousalRiskBadge" class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-400 border border-emerald-800">
+            CLEAN / NO SPOUSAL CONFLICT
+          </span>
+        </div>
+
+        <div id="familyConflictsBox" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2.5 text-xs"></div>
+      </div>
+
+    </div>
+
+    <!-- ROW: SUPER PAC DARK MONEY TRACKER & STAFF WORKPLACE METER -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Super PAC & Outside Dark Money Tracker -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="dollar-sign" class="w-4 h-4 text-amber-400"></i>
+              <span>Super PAC & Outside Dark Money Tracker</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Independent expenditures spending for vs. against lawmaker</p>
+          </div>
+          <span id="darkMoneyRatioBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800 font-mono">
+            42% Outside Ratio
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-center">
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Outside Support Spending</div>
+            <div id="outsideSupportVal" class="text-lg font-black text-emerald-400 mt-1">$2.1M</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Outside Opposition / Attacks</div>
+            <div id="outsideOpposeVal" class="text-lg font-black text-red-400 mt-1">$6.3M</div>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Top Independent Super PACs:</div>
+          <div id="superPacList" class="space-y-1.5"></div>
+        </div>
+      </div>
+
+      <!-- Institutional Workplace & Staff Turnover Index -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="building-2" class="w-4 h-4 text-cyan-400"></i>
+              <span>Workplace Culture & K-Street Revolving Door</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Staff turnover rates, office stability & lobbyist migration</p>
+          </div>
+          <span id="staffGradeBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+            A (Low Churn)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-500 font-semibold">Annual Staff Churn</div>
+            <div id="staffTurnoverVal" class="font-bold text-slate-200 mt-0.5">21.5%</div>
+            <div class="text-[9px] text-slate-500 mt-0.5">Median: 38%</div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-500 font-semibold">Hearing Presence</div>
+            <div id="hearingAttendVal" class="font-bold text-cyan-400 mt-0.5">96.0%</div>
+            <div class="text-[9px] text-slate-500 mt-0.5">Committee Markups</div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-500 font-semibold">Revolving Door</div>
+            <div id="revolvingDoorVal" class="font-bold text-emerald-400 mt-0.5">0 Staff</div>
+            <div class="text-[9px] text-slate-500 mt-0.5">K-Street Lobbyists</div>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+          <div class="flex justify-between text-slate-400 text-[11px]">
+            <span>Bipartisan Amendment Adoption Rate:</span>
+            <strong id="amendmentRateVal" class="text-cyan-400 font-mono">74.0%</strong>
+          </div>
+          <p id="workplaceSummaryText" class="text-[11px] text-slate-300 leading-relaxed"></p>
+        </div>
+      </div>
+
+    </div>
+
     <!-- ROW: CONGRESSIONAL CORRUPTION & SCANDAL WATCH & WEALTH P&L -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -611,7 +753,7 @@
 
     </div>
 
-    <!-- NEW SECTION: VOTER POCKETBOOK & HOUSEHOLD WALLET SCORECARD -->
+    <!-- VOTER POCKETBOOK & HOUSEHOLD WALLET SCORECARD -->
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
         <div>
@@ -1649,6 +1791,12 @@
         let metricDisplay = "";
         if (sortMetric === "overall_score") {
           metricDisplay = `<strong class="text-cyan-400 font-mono text-sm">${m.overall_score.toFixed(1)}</strong> <span class="text-[10px] text-slate-400">/ 100</span>`;
+        } else if (sortMetric === "approval_pct") {
+          metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${m.approval_pct.toFixed(1)}%</strong> <span class="text-[10px] text-slate-400">Approval</span>`;
+        } else if (sortMetric === "dark_money_millions") {
+          metricDisplay = `<strong class="text-amber-400 font-mono text-sm">$${m.dark_money_millions.toFixed(1)}M</strong> <span class="text-[10px] text-slate-400">Super PAC</span>`;
+        } else if (sortMetric === "staff_turnover_pct") {
+          metricDisplay = `<strong class="text-cyan-400 font-mono text-sm">${m.staff_turnover_pct.toFixed(1)}%</strong> <span class="text-[10px] text-slate-400">Churn</span>`;
         } else if (sortMetric === "ethics_risk_score") {
           metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${m.ethics_risk_score.toFixed(1)}</strong> <span class="text-[10px] text-slate-400">/ 100 Risk</span>`;
         } else if (sortMetric.includes("pct") || sortMetric.includes("attendance") || sortMetric.includes("sync") || sortMetric.includes("velocity")) {
@@ -1806,6 +1954,10 @@
         const wealth = p.wealth_pl || {};
         const ethics = p.ethics_risk || {};
         const wallet = p.wallet_scorecard || {};
+        const superPac = p.super_pac_spending || {};
+        const family = p.family_conflicts || {};
+        const approval = p.approval_rating || {};
+        const workplace = p.workplace_metrics || {};
         const don = p.donor_influence || {};
 
         document.getElementById("memberName").textContent = bio.full_name;
@@ -1847,6 +1999,73 @@
           btn.innerHTML = `<i data-lucide="external-link" class="w-3 h-3 text-cyan-400"></i><span>${affName}</span>`;
           badgesContainer.appendChild(btn);
         });
+
+        // Constituent Approval Ratings
+        document.getElementById("distAppVal").textContent = `${(approval.district_approval_pct || 58.0).toFixed(1)}%`;
+        document.getElementById("distDisappVal").textContent = `${(approval.district_disapproval_pct || 36.0).toFixed(1)}%`;
+        document.getElementById("distNetVal").textContent = `${(approval.net_approval || 22.0) > 0 ? '+' : ''}${(approval.net_approval || 22.0).toFixed(1)}%`;
+        document.getElementById("statewideAppVal").textContent = `${(approval.statewide_approval_pct || 52.0).toFixed(1)}%`;
+        document.getElementById("approvalTrendBadge").textContent = approval.trend_direction || "▲ +2.4% Q3 Trend";
+        document.getElementById("approvalAssessmentText").textContent = approval.approval_assessment || "Solid majority job approval in home district.";
+
+        // Spousal & Dynastic Family Conflict Matrix
+        document.getElementById("spousalRiskBadge").textContent = family.spousal_risk_rating || "CLEAN / NO SPOUSAL CONFLICT";
+        const fColor = (family.spousal_risk_rating || "").includes("HIGH") ? "bg-red-950 text-red-400 border-red-800" : "bg-emerald-950 text-emerald-400 border-emerald-800";
+        document.getElementById("spousalRiskBadge").className = `px-2 py-0.5 rounded text-[10px] font-black border ${fColor}`;
+
+        const famBox = document.getElementById("familyConflictsBox");
+        famBox.innerHTML = `
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase block">Dynastic Wealth & Trust Assets:</span>
+            <span class="font-bold text-slate-200">${family.dynastic_trust_assets_formatted || 'None Disclosed'}</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase block">Conflict Assessment:</span>
+            <span class="text-slate-300 leading-relaxed">${family.family_conflict_summary}</span>
+          </div>
+        `;
+        if (family.spousal_affiliations && family.spousal_affiliations.length > 0) {
+          family.spousal_affiliations.forEach(sa => {
+            const div = document.createElement("div");
+            div.className = "bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1";
+            div.innerHTML = `
+              <div class="font-bold text-amber-300">${sa.spouse_name}: ${sa.role_title} at ${sa.organization}</div>
+              <div class="text-[10px] text-slate-400">${sa.industry} &bull; ${sa.conflict_notes}</div>
+            `;
+            famBox.appendChild(div);
+          });
+        }
+
+        // Super PAC Outside Spending
+        document.getElementById("outsideSupportVal").textContent = `$${(superPac.spending_in_support_millions || 2.1).toFixed(1)}M`;
+        document.getElementById("outsideOpposeVal").textContent = `$${(superPac.spending_in_opposition_millions || 6.3).toFixed(1)}M`;
+        document.getElementById("darkMoneyRatioBadge").textContent = `${(superPac.dark_money_ratio_pct || 42.0).toFixed(0)}% Outside Ratio`;
+        
+        const pacList = document.getElementById("superPacList");
+        pacList.innerHTML = "";
+        (superPac.top_outside_super_pacs || []).forEach(pac => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-950 p-2 rounded-lg border border-slate-800 flex items-center justify-between text-xs";
+          const sColor = pac.stance === "SUPPORT" ? "text-emerald-400 bg-emerald-950/80 border-emerald-800" : "text-red-400 bg-red-950/80 border-red-800";
+          item.innerHTML = `
+            <div>
+              <div class="font-bold text-white">${pac.pac_name}</div>
+              <div class="text-[10px] text-slate-400">${pac.primary_donor_interest}</div>
+            </div>
+            <div class="text-right">
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-black border ${sColor}">${pac.stance}: ${pac.formatted_amount}</span>
+            </div>
+          `;
+          pacList.appendChild(item);
+        });
+
+        // Workplace & Revolving Door
+        document.getElementById("staffTurnoverVal").textContent = `${(workplace.annual_staff_turnover_pct || 21.5).toFixed(1)}%`;
+        document.getElementById("hearingAttendVal").textContent = `${(workplace.committee_hearing_attendance_pct || 96.0).toFixed(1)}%`;
+        document.getElementById("revolvingDoorVal").textContent = `${workplace.revolving_door_lobbyist_count || 0} Staff`;
+        document.getElementById("staffGradeBadge").textContent = workplace.staff_turnover_grade || "A (Stable)";
+        document.getElementById("amendmentRateVal").textContent = `${(workplace.amendment_adoption_rate_pct || 74.0).toFixed(1)}%`;
+        document.getElementById("workplaceSummaryText").textContent = workplace.turnover_assessment || "Healthy staff retention rate supporting continuous constituent casework operations.";
 
         // Corruption & Scandal Watch
         document.getElementById("ethicsRiskScore").innerHTML = `${(ethics.ethics_risk_score || 12.0).toFixed(1)} <span class="text-xs text-slate-500 font-normal">/ 100</span>`;

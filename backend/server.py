@@ -306,6 +306,36 @@ async def api_ethics_dossier(bioguide_id: str):
         logger.exception("Failed to retrieve ethics dossier")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/family-conflicts/{bioguide_id}")
+async def api_family_conflicts(bioguide_id: str):
+    """Retrieve detailed Spousal Corporate Leadership, Dynastic Family Trusts, and Business Conflicts."""
+    try:
+        profile = build_full_profile(bioguide_id)
+        return {
+            "bioguide_id": profile.bio.bioguide_id,
+            "full_name": profile.bio.full_name,
+            "party": profile.bio.party,
+            "family_conflicts": profile.family_conflicts.model_dump()
+        }
+    except Exception as e:
+        logger.exception("Failed to retrieve family conflicts")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/super-pacs/{bioguide_id}")
+async def api_super_pacs(bioguide_id: str):
+    """Retrieve Super PAC Independent Expenditures, Dark Money ratios, and top outside groups."""
+    try:
+        profile = build_full_profile(bioguide_id)
+        return {
+            "bioguide_id": profile.bio.bioguide_id,
+            "full_name": profile.bio.full_name,
+            "party": profile.bio.party,
+            "super_pac_spending": profile.super_pac_spending.model_dump()
+        }
+    except Exception as e:
+        logger.exception("Failed to retrieve super pac spending")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # -------------------------------------------------------------
 # OPEN METHODOLOGY & DATA SOURCES CITATION ENDPOINT
 # -------------------------------------------------------------
