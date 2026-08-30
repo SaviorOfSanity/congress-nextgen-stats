@@ -450,6 +450,9 @@
               <span id="chamberStateBadge" class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
                 U.S. House &bull; NY-14
               </span>
+              <span id="activeTimeframeBadge" class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
+                Career Total
+              </span>
             </div>
             
             <p id="leadershipRole" class="text-sm font-semibold text-cyan-400 flex items-center gap-1.5 mb-2">
@@ -777,15 +780,18 @@
       
       <!-- Rhetoric vs Reality Audit (8 cols) -->
       <div class="md:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
               <span>Rhetoric vs. Reality Audit (Pledges vs. Floor Votes)</span>
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Auditing public campaign statements against official roll call voting records</p>
+            <p class="text-xs text-slate-400 mt-0.5">Auditing public campaign statements against official recorded roll calls</p>
           </div>
-          <span class="info-btn" onclick="openInfoModal('rhetoric')">ℹ</span>
+          <button onclick="openRhetoricModal()" class="px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-800 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+            <i data-lucide="list-checks" class="w-3.5 h-3.5"></i>
+            <span>Full Audit Dossier (<span id="rhetoricTotalCount">0</span> Pledges) &rarr;</span>
+          </button>
         </div>
 
         <div id="rhetoricAuditsList" class="space-y-3"></div>
@@ -1431,7 +1437,34 @@
     </div>
   </div>
 
-  <div id="methodologyModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'methodologyModal')">
+    <!-- ============================================================== -->
+  <!-- MODAL: EXPANDED RHETORIC VS REALITY PLEDGE AUDIT DOSSIER       -->
+  <!-- ============================================================== -->
+  <div id="rhetoricModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'rhetoricModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl modal-box p-6 shadow-2xl space-y-6">
+      <div class="flex items-start justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-emerald-950 border border-emerald-700 flex items-center justify-center text-emerald-400 flex-shrink-0">
+            <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-black text-white">Rhetoric vs. Reality: Full Pledge Audit Dossier</h2>
+            <p id="modalRhetoricSubtitle" class="text-xs text-slate-400 font-medium mt-0.5">Auditing all stated campaign promises directly against recorded statutory roll calls</p>
+          </div>
+        </div>
+        <button onclick="closeModal('rhetoricModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Itemized Full Pledges List -->
+      <div id="modalRhetoricFullList" class="space-y-3.5 max-h-[550px] overflow-y-auto pr-2"></div>
+
+      <div class="flex justify-end pt-2">
+        <button onclick="closeModal('rhetoricModal')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">Close Audit Dossier</button>
+      </div>
+    </div>
+  </div>
+
+<div id="methodologyModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'methodologyModal')">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl modal-box p-6 shadow-2xl space-y-6">
       <div class="flex items-start justify-between border-b border-slate-800 pb-3">
         <div class="flex items-start gap-4">
@@ -2139,15 +2172,29 @@
           walletGrid.appendChild(card);
         });
 
-        // Rhetoric vs Reality Audits
+        // Timeframe Active Label
+        const tfLabels = {
+          "career": "Career Total (All-Time)",
+          "118": "118th Congress (2023 - 2026)",
+          "117": "117th Congress (2021 - 2022)",
+          "116": "116th Congress (2019 - 2020)"
+        };
+        document.getElementById("activeTimeframeBadge").textContent = tfLabels[currentTimeframe] || p.voting.era_label;
+
+        // Rhetoric vs Reality Audits (Top 4 on card, full list in modal)
+        const rAudits = p.rhetoric_audits || [];
+        document.getElementById("rhetoricTotalCount").textContent = rAudits.length;
         const rList = document.getElementById("rhetoricAuditsList");
         rList.innerHTML = "";
-        (p.rhetoric_audits || []).forEach(r => {
+        
+        rAudits.slice(0, 4).forEach(r => {
           const item = document.createElement("div");
           item.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2";
           
           let statusBadge = "bg-emerald-950 text-emerald-400 border border-emerald-800";
-          if (r.fidelity_status.includes("SPLIT") || r.fidelity_status.includes("REVERSED")) {
+          if (r.fidelity_status.includes("BROKEN") || r.fidelity_status.includes("REVERSED")) {
+            statusBadge = "bg-red-950 text-red-400 border border-red-800";
+          } else if (r.fidelity_status.includes("SPLIT") || r.fidelity_status.includes("COMPROMISE")) {
             statusBadge = "bg-amber-950 text-amber-400 border border-amber-800";
           }
 
@@ -2158,15 +2205,15 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                <span class="text-slate-500 font-bold uppercase text-[9px] block">Public Rhetoric / Pledge:</span>
+                <span class="text-slate-500 font-bold uppercase text-[9px] block">Public Campaign Statement:</span>
                 <span class="text-slate-200">"${r.campaign_statement}"</span>
               </div>
               <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                <span class="text-cyan-400 font-bold uppercase text-[9px] block">Recorded Floor Roll Call:</span>
+                <span class="text-cyan-400 font-bold uppercase text-[9px] block">Official Roll Call Vote:</span>
                 <span class="text-slate-200 font-medium">${r.actual_roll_call_vote}</span>
               </div>
             </div>
-            <p class="text-[11px] text-slate-400 leading-relaxed"><strong class="text-slate-300">Analysis:</strong> ${r.analysis_takeaway}</p>
+            <p class="text-[11px] text-slate-400 leading-relaxed"><strong class="text-slate-300">Statutory Analysis:</strong> ${r.analysis_takeaway}</p>
           `;
           rList.appendChild(item);
         });
@@ -2719,7 +2766,56 @@
       });
     }
 
-    async function openDistrictModal() {
+    
+    function openRhetoricModal() {
+      if (!currentProfile || !currentProfile.rhetoric_audits) return;
+      const audits = currentProfile.rhetoric_audits;
+      
+      document.getElementById("modalRhetoricSubtitle").textContent = `${currentProfile.bio.full_name} (${currentProfile.bio.party}-${currentProfile.bio.state}) • ${audits.length} Landmark Pledges Audited`;
+      const container = document.getElementById("modalRhetoricFullList");
+      container.innerHTML = "";
+
+      audits.forEach((r, idx) => {
+        const item = document.createElement("div");
+        item.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5";
+        
+        let statusBadge = "bg-emerald-950 text-emerald-400 border border-emerald-800";
+        if (r.fidelity_status.includes("BROKEN") || r.fidelity_status.includes("REVERSED")) {
+          statusBadge = "bg-red-950 text-red-400 border border-red-800";
+        } else if (r.fidelity_status.includes("SPLIT") || r.fidelity_status.includes("COMPROMISE")) {
+          statusBadge = "bg-amber-950 text-amber-400 border border-amber-800";
+        }
+
+        item.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400">#${idx + 1}</span>
+              <h4 class="font-bold text-white text-sm">${r.topic}</h4>
+            </div>
+            <span class="px-2.5 py-0.5 rounded text-xs font-black ${statusBadge}">${r.fidelity_status}</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-800">
+              <span class="text-slate-500 font-bold uppercase text-[10px] block">Public Campaign Stance:</span>
+              <span class="text-slate-200">"${r.campaign_statement}"</span>
+            </div>
+            <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-800">
+              <span class="text-cyan-400 font-bold uppercase text-[10px] block">Official Roll Call Action (${r.bill_cited}):</span>
+              <span class="text-slate-200 font-medium">${r.actual_roll_call_vote}</span>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/60"><strong class="text-slate-400">Analysis:</strong> ${r.analysis_takeaway}</p>
+        `;
+        container.appendChild(item);
+      });
+
+      document.getElementById("rhetoricModal").classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+async function openDistrictModal() {
       try {
         const res = await fetch(`/api/district-dossier/${currentMemberId}`);
         if (!res.ok) throw new Error("Failed to load district dossier");

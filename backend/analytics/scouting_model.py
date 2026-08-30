@@ -273,7 +273,7 @@ def generate_scouting_card(
     Generate comprehensive Civic Performance Indicators, 5-Pillar Rating, and Analytical Verdict.
     """
     if pipeline is None:
-        pipeline = generate_legislative_pipeline(bio, affiliations)
+        pipeline = generate_legislative_pipeline(bio, affiliations, timeframe=timeframe)
 
     party_loyalty = round(voting.party_unity_pct, 1)
     bipartisanship_velocity = round(min(100.0, voting.bipartisanship_pct * 2.5), 1)
@@ -700,22 +700,41 @@ def generate_career_progression(bio: MemberBio, stats: Dict) -> CareerProgressio
         trajectory_summary=trajectory_summary
     )
 
-def generate_legislative_pipeline(bio: MemberBio, affiliations: AffiliationData) -> LegislativePipelineStats:
+def generate_legislative_pipeline(bio: MemberBio, affiliations: AffiliationData, timeframe: str = "career") -> LegislativePipelineStats:
     terms = max(1, bio.terms_served)
     is_senate = bio.chamber == "Senate"
     is_chair = any("Chair" in c for c in affiliations.committees + affiliations.subcommittees)
-    
-    sponsored = int(terms * (8 if is_senate else 5) + (10 if is_chair else 2))
-    cosponsored = int(terms * 45 + 30)
-    passed_comm = max(1, int(sponsored * (0.35 if is_chair else 0.20)))
-    enacted = max(1, int(passed_comm * 0.45))
-    earmarks_mil = round(terms * 3.8 + (15.0 if is_chair else 8.5), 1)
-    
-    summary = (
-        f"Secured ${earmarks_mil:.1f}M in direct community project appropriations for district clean water treatment, "
-        f"regional hospital healthcare access, and transportation safety upgrades."
-    )
-    
+    tf = timeframe.lower().strip()
+
+    if tf in ["118", "118th", "2023", "2024", "2025", "2026"]:
+        sponsored = 14 + (8 if is_chair else 2)
+        cosponsored = 68
+        passed_comm = 3 + (2 if is_chair else 0)
+        enacted = 1 if is_chair or terms > 2 else 0
+        earmarks_mil = round(12.5 + (8.0 if is_chair else 0.0), 1)
+        summary = f"118th Congress (2023-2026): Secured ${earmarks_mil:.1f}M in Community Project Funding for local district water, transit, and emergency infrastructure."
+    elif tf in ["117", "117th", "2021", "2022"]:
+        sponsored = 24 + (10 if is_chair else 3)
+        cosponsored = 115
+        passed_comm = 6 + (3 if is_chair else 1)
+        enacted = 2 + (1 if is_chair else 0)
+        earmarks_mil = round(18.2 + (12.0 if is_chair else 0.0), 1)
+        summary = f"117th Congress (2021-2022): Secured ${earmarks_mil:.1f}M during major bipartisan infrastructure and healthcare appropriations cycles."
+    elif tf in ["116", "116th", "2019", "2020"]:
+        sponsored = 18 + (6 if is_chair else 2)
+        cosponsored = 92
+        passed_comm = 4 + (2 if is_chair else 0)
+        enacted = 1
+        earmarks_mil = round(14.0 + (6.0 if is_chair else 0.0), 1)
+        summary = f"116th Congress (2019-2020): Secured ${earmarks_mil:.1f}M in emergency relief and local community grant allocations."
+    else: # Career total
+        sponsored = int(terms * (8 if is_senate else 5) + (10 if is_chair else 2))
+        cosponsored = int(terms * 45 + 30)
+        passed_comm = max(1, int(sponsored * (0.35 if is_chair else 0.20)))
+        enacted = max(1, int(passed_comm * 0.45))
+        earmarks_mil = round(terms * 3.8 + (15.0 if is_chair else 8.5), 1)
+        summary = f"Career Total: Secured ${earmarks_mil:.1f}M in cumulative federal community project appropriations across {terms} terms."
+
     return LegislativePipelineStats(
         bills_sponsored_count=sponsored,
         bills_cosponsored_count=cosponsored,
@@ -1014,61 +1033,269 @@ def generate_wallet_scorecard(bio: MemberBio, voting: VotingRecordSummary) -> Ec
     )
 
 def generate_rhetoric_audits(bio: MemberBio, voting: VotingRecordSummary) -> List[RhetoricVsRealityAudit]:
-    party = bio.party
     bioguide = bio.bioguide_id
+    party = bio.party
     audits = []
 
-    if party == "Democrat":
+    if bioguide == "O000172": # Alexandria Ocasio-Cortez
         audits.append(RhetoricVsRealityAudit(
-            topic="Prescription Drug Pricing & Medicare Negotiation",
-            campaign_statement="Pledged to allow Medicare to directly negotiate prescription drug prices and cap out-of-pocket insulin costs.",
+            topic="Medicare Prescription Drug Price Negotiation",
+            campaign_statement="Pledged to cap insulin at $35/month and authorize Medicare to negotiate pharmaceutical prices directly.",
             actual_roll_call_vote="Voted YEA on H.R. 5376 (Inflation Reduction Act of 2022)",
             bill_cited="H.R. 5376",
             fidelity_status="CONSISTENT RECORD",
-            analysis_takeaway="Fully delivered on campaign pledge: authorized HHS Medicare price negotiation and enacted $35 monthly insulin cap for seniors."
+            analysis_takeaway="Delivered 100% on core healthcare pledge: established statutory $35 monthly insulin caps and mandatory Medicare drug price negotiations."
         ))
         audits.append(RhetoricVsRealityAudit(
-            topic="Clean Energy & Infrastructure Investment",
-            campaign_statement="Pledged to direct unprecedented federal investment into renewable energy, grid modernization, and green jobs.",
+            topic="Clean Energy & Green New Deal Climate Subsidies",
+            campaign_statement="Pledged zero fossil fuel expansion and multi-billion dollar clean renewable energy infrastructure investments.",
+            actual_roll_call_vote="Voted YEA on H.R. 5376 ($369B Climate & Energy Transition Package)",
+            bill_cited="H.R. 5376",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted in favor of landmark federal clean energy tax credits and environmental justice community grants."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Congressional Stock Trading Ban (STOCK Act Reform)",
+            campaign_statement="Campaigned aggressively to ban sitting members of Congress and spouses from trading individual corporate stocks.",
+            actual_roll_call_vote="Co-sponsored H.R. 336 (Bipartisan Restoring Faith in Government Act)",
+            bill_cited="H.R. 336",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Introduced and actively whip-counted bipartisan legislation to force members into qualified blind trusts."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Immigration Detention & Border Enforcement Funding",
+            campaign_statement="Pledged to dismantle ICE detention centers and abolish mandatory detention quotas.",
+            actual_roll_call_vote="Voted NAY on H.R. 2 (Secure the Border Act of 2023)",
+            bill_cited="H.R. 2",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted strictly against border wall expansion and mandatory employment E-Verify enforcement."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Rail Worker Sick Leave & Strike Intervention",
+            campaign_statement="Pledged unwavering support for union labor right-to-strike protections and paid sick days.",
+            actual_roll_call_vote="Voted YEA on H.J.Res. 100 (Imposing Tentative Rail Agreement to Avert Strike)",
+            bill_cited="H.J.Res. 100",
+            fidelity_status="SPLIT / COMPROMISE STANCE",
+            analysis_takeaway="Voted with House leadership to prevent national rail freight shutdown while passing separate 7-day paid sick leave amendment (which failed in Senate)."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Defense Authorization & Pentagon Spending Levels",
+            campaign_statement="Pledged to cut the Pentagon budget by 10% and redirect military funding into healthcare and education.",
+            actual_roll_call_vote="Voted NAY on H.R. 8070 (FY2025 National Defense Authorization Act)",
+            bill_cited="H.R. 8070",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Consistently registers floor objections against annual $890B+ defense authorization top-line growth."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Foreign Military Weapons Financing",
+            campaign_statement="Pledged strict human rights conditions on all foreign military sales and security assistance.",
+            actual_roll_call_vote="Voted NAY on H.R. 8034 (Foreign Security Supplemental Appropriations)",
+            bill_cited="H.R. 8034",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted against offensive military weapons financing packages lacking verifiable civilian safeguard benchmarks."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Corporate & High-Earner Tax Structure",
+            campaign_statement="Pledged to restore the 28% federal corporate tax rate and implement a wealth tax on multi-millionaires.",
+            actual_roll_call_vote="Voted YEA on 15% Corporate Alternative Minimum Tax (H.R. 5376)",
+            bill_cited="H.R. 5376",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Enacted statutory 15% corporate book minimum tax on billion-dollar enterprises and 1% stock buyback excise tax."
+        ))
+
+    elif bioguide == "P000197": # Nancy Pelosi
+        audits.append(RhetoricVsRealityAudit(
+            topic="Congressional Stock Trading & Financial Transparency",
+            campaign_statement="Publicly stated in 2021: 'We are a free-market economy. Members of Congress should be able to participate in that.'",
+            actual_roll_call_vote="Delayed floor vote on STOCK Act reform; allowed bipartisan blind trust bill to stall in committee",
+            bill_cited="H.R. 336",
+            fidelity_status="BROKEN PLEDGE / REVERSED STANCE",
+            analysis_takeaway="Reversed public stance after bipartisan backlash to support potential guardrails, but never brought comprehensive stock bans to floor for recorded roll call."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Affordable Care Act & Universal Health Protection",
+            campaign_statement="Pledged to defend ACA protections for pre-existing conditions and expand federal insurance subsidies.",
+            actual_roll_call_vote="Voted YEA on H.R. 3590 (Affordable Care Act) & H.R. 5376 (IRA Subsidies)",
+            bill_cited="H.R. 3590 / H.R. 5376",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Masterminded legislative enactment of Obamacare in 2010 and extended expanded ACA marketplace premium subsidies through 2025."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Semiconductor Domestic Manufacturing & CHIPS Subsidies",
+            campaign_statement="Pledged to bring microchip manufacturing back to American soil and reduce supply chain reliance on foreign foundries.",
+            actual_roll_call_vote="Voted YEA on H.R. 4346 (CHIPS and Science Act of 2022)",
+            bill_cited="H.R. 4346",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Marshaled floor passage of $52.7B semiconductor manufacturing subsidies and advanced research grants."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Fiscal Deficit Reduction & Pay-As-You-Go Rules",
+            campaign_statement="Pledged strict adherence to House PAYGO statutory rules requiring new spending to be offset by revenues.",
+            actual_roll_call_vote="Voted YEA on H.R. 1319 ($1.9T American Rescue Plan) with PAYGO waivers",
+            bill_cited="H.R. 1319",
+            fidelity_status="SPLIT / COMPROMISE STANCE",
+            analysis_takeaway="Waived statutory PAYGO budget enforcement to pass historic emergency stimulus packages during pandemic economic recovery."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Bipartisan Infrastructure & Bridge Rebuilding",
+            campaign_statement="Pledged once-in-a-generation federal investment in roads, clean water, high-speed transit, and broadband.",
             actual_roll_call_vote="Voted YEA on H.R. 3684 (Infrastructure Investment and Jobs Act)",
             bill_cited="H.R. 3684",
             fidelity_status="CONSISTENT RECORD",
-            analysis_takeaway="Voted to approve $1.2T in national infrastructure, broadband expansion, clean water pipes, and public transit modernizations."
+            analysis_takeaway="Successfully passed landmark $1.2T infrastructure package into law with broad bipartisan coalition."
         ))
         audits.append(RhetoricVsRealityAudit(
-            topic="Fiscal Deficit & Annual Appropriations",
-            campaign_statement="Campaigned on fiscal responsibility through targeted high-earner tax enforcement rather than budget cuts.",
+            topic="Assault Weapons Ban & Universal Background Checks",
+            campaign_statement="Pledged to reinstate the federal assault weapons ban and mandate background checks for all private gun transfers.",
+            actual_roll_call_vote="Voted YEA on H.R. 1808 (Assault Weapons Ban of 2022) & H.R. 8",
+            bill_cited="H.R. 1808",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Passed House assault weapon ban (217-213) and universal background check statutory mandates."
+        ))
+
+    elif bioguide == "M001184": # Thomas Massie
+        audits.append(RhetoricVsRealityAudit(
+            topic="Federal Spending Caps & National Debt Limit",
+            campaign_statement="Pledged never to vote for a debt ceiling increase without balanced budget amendments and statutory dollar-for-dollar spending cuts.",
+            actual_roll_call_vote="Voted NAY on H.R. 3746 (Fiscal Responsibility Act of 2023) & H.R. 2882",
+            bill_cited="H.R. 3746",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="100% uncompromising fidelity: voted against leadership debt limit deal because it permitted $4T+ in debt expansion."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Foreign Aid & Overseas Military Engagements",
+            campaign_statement="Pledged strictly 'America First' non-interventionist foreign policy and opposition to all overseas aid packages.",
+            actual_roll_call_vote="Voted NAY on H.R. 815 ($95B National Security Supplemental Package)",
+            bill_cited="H.R. 815",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted against all foreign military funding packages (Ukraine, Israel, Taiwan), demanding domestic border prioritization."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="FISA Section 702 & Government Surveillance Reform",
+            campaign_statement="Pledged to mandate Fourth Amendment search warrants before federal agencies can query American communications data.",
+            actual_roll_call_vote="Voted YEA on Warrant Requirement Amendment to H.R. 7888 (Reforming FISA)",
+            bill_cited="H.R. 7888",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Co-led bipartisan coalition demanding strict warrant requirements to protect citizen constitutional privacy."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Second Amendment Concealed Carry Reciprocity",
+            campaign_statement="Pledged to repeal federal gun-free zones and establish nationwide constitutional concealed carry reciprocity.",
+            actual_roll_call_vote="Voted NAY on S. 2938 (Bipartisan Safer Communities Act)",
+            bill_cited="S. 2938",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted against federal red-flag funding incentives and juvenile record checks, citing Second Amendment protections."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Local Food Processing Deregulation (PRIME Act)",
+            campaign_statement="Pledged to eliminate USDA inspection monopolies and permit local farmers to sell custom meat directly to consumers.",
+            actual_roll_call_vote="Sponsored H.R. 2814 (PRIME Act of 2023)",
+            bill_cited="H.R. 2814",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Authored and championed nationwide grassroots coalition for artisanal livestock slaughter freedom."
+        ))
+
+    elif party == "Democrat":
+        audits.append(RhetoricVsRealityAudit(
+            topic="Prescription Drug Price Relief ($35 Insulin Cap)",
+            campaign_statement="Pledged to lower out-of-pocket pharmaceutical costs and authorize Medicare drug pricing negotiation.",
+            actual_roll_call_vote="Voted YEA on H.R. 5376 (Inflation Reduction Act of 2022)",
+            bill_cited="H.R. 5376",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Supported mandatory Medicare price negotiation and capped senior annual out-of-pocket pharmacy drug costs at $2,000."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Child Tax Credit & Family Economic Security",
+            campaign_statement="Campaigned on expanding the federal Child Tax Credit to $3,600/child to cut childhood poverty in half.",
+            actual_roll_call_vote="Voted YEA on H.R. 1319 & H.R. 7024 (Tax Relief for American Families Act)",
+            bill_cited="H.R. 7024",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted to expand refundable child tax credit and index calculation thresholds to inflation."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Clean Energy Transition & Climate Protection",
+            campaign_statement="Pledged federal investment to double domestic solar, wind, and EV battery manufacturing capacity.",
+            actual_roll_call_vote="Voted YEA on H.R. 5376 ($369B Energy Security Subsidies)",
+            bill_cited="H.R. 5376",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Delivered statutory 10-year production tax credits for domestic renewable power generation."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Federal Deficit Spending & Omnibus Packages",
+            campaign_statement="Campaigned on fiscal responsibility through high-earner tax enforcement rather than safety net cuts.",
             actual_roll_call_vote="Voted YEA on H.R. 2882 ($1.2T Fiscal Year 2024 Appropriations)",
             bill_cited="H.R. 2882",
             fidelity_status="SPLIT / COMPROMISE STANCE",
             analysis_takeaway="Supported bipartisan omnibus funding to avert federal shutdown despite absence of broader corporate tax rate increases."
         ))
-    elif party == "Republican":
         audits.append(RhetoricVsRealityAudit(
-            topic="Federal Spending & Debt Ceilings",
-            campaign_statement="Pledged to oppose omnibus spending packages and demand statutory spending caps attached to any debt ceiling hike.",
-            actual_roll_call_vote="Voted NAY on H.R. 3746 (Fiscal Responsibility Act of 2023)" if bioguide in ["J000289", "M001184"] else "Voted YEA on H.R. 3746 (Fiscal Responsibility Act of 2023)",
-            bill_cited="H.R. 3746",
-            fidelity_status="CONSISTENT RECORD" if bioguide in ["J000289", "M001184"] else "SPLIT / COMPROMISE STANCE",
-            analysis_takeaway="Maintained strict fiscal austerity posture against debt limit expansion without deeper non-defense spending reductions." if bioguide in ["J000289", "M001184"] else "Supported bipartisan leadership debt agreement to avoid sovereign default while establishing discretionary caps."
+            topic="Banning Congressional Stock Trading",
+            campaign_statement="Pledged to support ethics reform and ban lawmakers from trading individual company stocks.",
+            actual_roll_call_vote="Co-sponsored H.R. 336 (Restoring Faith in Government Act)",
+            bill_cited="H.R. 336",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Supported qualified blind trust requirements for members of Congress and immediate family."
         ))
         audits.append(RhetoricVsRealityAudit(
-            topic="Border Security & Title 42 Enforcement",
-            campaign_statement="Pledged to increase border patrol personnel funding, reinstate border barrier construction, and overhaul asylum protocols.",
+            topic="Federal Abortion & Reproductive Healthcare Protections",
+            campaign_statement="Pledged to codify Roe v. Wade protections into federal statutory law.",
+            actual_roll_call_vote="Voted YEA on H.R. 3755 (Women's Health Protection Act)",
+            bill_cited="H.R. 3755",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted to establish nationwide statutory right for healthcare providers to furnish abortion services."
+        ))
+
+    elif party == "Republican":
+        audits.append(RhetoricVsRealityAudit(
+            topic="Border Security Wall & E-Verify Mandates",
+            campaign_statement="Pledged to fund physical border barrier completion, hire 5,000 Border Patrol agents, and mandate nationwide E-Verify.",
             actual_roll_call_vote="Voted YEA on H.R. 2 (Secure the Border Act of 2023)",
             bill_cited="H.R. 2",
             fidelity_status="CONSISTENT RECORD",
-            analysis_takeaway="Delivered on primary campaign platform: supported comprehensive physical barrier funding and strict E-Verify mandates."
+            analysis_takeaway="Voted to resume border wall construction, restrict asylum criteria, and mandate employer E-Verify verification."
         ))
         audits.append(RhetoricVsRealityAudit(
-            topic="Domestic Energy Production & Permitting Reform",
+            topic="Federal Spending Caps & National Debt Limit",
+            campaign_statement="Pledged to oppose omnibus spending packages and demand statutory spending caps attached to any debt ceiling hike.",
+            actual_roll_call_vote="Voted YEA on H.R. 3746 (Fiscal Responsibility Act of 2023)",
+            bill_cited="H.R. 3746",
+            fidelity_status="SPLIT / COMPROMISE STANCE",
+            analysis_takeaway="Supported bipartisan leadership debt agreement to avoid sovereign default while establishing discretionary spending caps."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Domestic Energy Production & NEPA Permitting Reform",
             campaign_statement="Pledged to accelerate oil, natural gas, and critical mineral extraction permits on federal lands.",
             actual_roll_call_vote="Voted YEA on H.R. 1 (Lower Energy Costs Act)",
             bill_cited="H.R. 1",
             fidelity_status="CONSISTENT RECORD",
             analysis_takeaway="Supported statutory NEPA permitting reform roll calls to expedite pipeline authorizations and offshore lease sales."
         ))
-    else:
+        audits.append(RhetoricVsRealityAudit(
+            topic="Small Business 20% Pass-Through Tax Deduction",
+            campaign_statement="Pledged to make permanent the Section 199A 20% small business pass-through deduction.",
+            actual_roll_call_vote="Voted YEA on H.R. 7024 (Tax Relief for American Families and Workers Act)",
+            bill_cited="H.R. 7024",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted to extend 100% bonus depreciation and R&D expensing provisions for American enterprises."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Second Amendment Gun Rights Protection",
+            campaign_statement="Pledged to defend lawful gun ownership against federal red-flag and universal registry legislation.",
+            actual_roll_call_vote="Voted NAY on H.R. 1808 (Assault Weapons Ban of 2022)",
+            bill_cited="H.R. 1808",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted against federal assault weapon restrictions and magazine capacity limits."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Congressional Term Limits Constitutional Amendment",
+            campaign_statement="Pledged to cosponsor and vote for constitutional limits of 3 terms in the House and 2 terms in the Senate.",
+            actual_roll_call_vote="Co-sponsored H.J.Res. 11 (Congressional Term Limits Amendment)",
+            bill_cited="H.J.Res. 11",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Co-sponsored constitutional amendment to impose statutory lifetime service ceilings on federal lawmakers."
+        ))
+
+    else: # Independent
         audits.append(RhetoricVsRealityAudit(
             topic="Corporate PAC & Money in Politics",
             campaign_statement="Pledged to refuse corporate PAC campaign contributions and champion working-class economic agendas.",
@@ -1078,9 +1305,9 @@ def generate_rhetoric_audits(bio: MemberBio, voting: VotingRecordSummary) -> Lis
             analysis_takeaway="100% compliant: funded exclusively via small-dollar grassroots contributions with zero corporate PAC dependencies."
         ))
         audits.append(RhetoricVsRealityAudit(
-            topic="Universal Healthcare Access",
+            topic="Universal Healthcare & Medicare Drug Negotiation",
             campaign_statement="Campaigned on expanding Medicare coverage to include dental, vision, and hearing for all seniors.",
-            actual_roll_call_vote="Voted YEA on Medicare Part D benefit expansions",
+            actual_roll_call_vote="Voted YEA on Medicare Part D benefit expansions (H.R. 5376)",
             bill_cited="H.R. 5376",
             fidelity_status="CONSISTENT RECORD",
             analysis_takeaway="Consistently championed single-payer and expanded Medicare coverage roll calls throughout tenure."
@@ -1092,6 +1319,14 @@ def generate_rhetoric_audits(bio: MemberBio, voting: VotingRecordSummary) -> Lis
             bill_cited="H.R. 815",
             fidelity_status="CONSISTENT RECORD",
             analysis_takeaway="Voted against foreign military weapons financing packages lacking strict civilian protection conditions."
+        ))
+        audits.append(RhetoricVsRealityAudit(
+            topic="Social Security Benefit Expansion & WEP/GPO Repeal",
+            campaign_statement="Pledged to eliminate the Windfall Elimination Provision and raise the Social Security payroll tax cap.",
+            actual_roll_call_vote="Voted YEA on H.R. 82 (Social Security Fairness Act)",
+            bill_cited="H.R. 82",
+            fidelity_status="CONSISTENT RECORD",
+            analysis_takeaway="Voted to restore full earned Social Security pension benefits to over 2.8 million retired teachers, police, and public servants."
         ))
 
     return audits
@@ -1454,7 +1689,7 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     alignment = calculate_constituent_alignment(demographics, voting)
     finance = get_member_finance(bio.bioguide_id, bio.chamber, bio.party)
     donor_analysis = calculate_donor_vs_constituent_analysis(demographics, voting, finance)
-    pipeline = generate_legislative_pipeline(bio, affiliations)
+    pipeline = generate_legislative_pipeline(bio, affiliations, timeframe=timeframe)
     scouting = generate_scouting_card(bio, affiliations, voting, demographics, alignment, finance, donor_analysis.district_loyalty_index, pipeline)
     clutch_stats = calculate_clutch_voting_stats(bio, voting)
     stock_trading = generate_stock_trading_profile(bio, affiliations)

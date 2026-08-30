@@ -796,16 +796,46 @@ def generate_member_voting_record(raw_data: Dict, timeframe: str = "career") -> 
             bipartisan = round(max(5.0, base_bipartisan - 3.0), 1)
             attendance = 97.9
             active_roll_calls = ERA_ROLL_CALLS["2010s"]
-    elif tf_clean in ["117th", "2021", "2022"]:
-        era_label = "117th Congress (2021 - 2022 Session)"
-        total_votes = 980
-        party_unity = round(min(99.5, base_unity + 2.0), 1)
-        bipartisan = round(base_bipartisan, 1)
-        attendance = 98.5
-        active_roll_calls = ERA_ROLL_CALLS["117th"]
-    else: # 118th, 2023, 2024, 2025, 2026
-        era_label = f"{tf_clean.upper()} Session / 118th Congress (2023 - 2026)"
-        total_votes = 320 if tf_clean in ["2024", "2025", "2026"] else 640
+    elif tf_clean in ["116", "116th", "2019", "2020"]:
+        if first_elected > 2020:
+            era_label = f"116th Congress (Not in Office • First Elected {first_elected})"
+            total_votes = 0
+            party_unity = base_unity
+            bipartisan = base_bipartisan
+            attendance = base_attendance
+            active_roll_calls = ERA_ROLL_CALLS.get("2010s", [])
+        else:
+            era_label = "116th Congress (2019 - 2020 Session)"
+            total_votes = 920
+            party_unity = round(max(70.0, min(99.0, base_unity - 1.2)), 1)
+            bipartisan = round(max(5.0, min(65.0, base_bipartisan + 3.5)), 1)
+            attendance = 98.2
+            active_roll_calls = ERA_ROLL_CALLS.get("2010s", [])
+    elif tf_clean in ["117", "117th", "2021", "2022"]:
+        if first_elected > 2022:
+            era_label = f"117th Congress (Not in Office • First Elected {first_elected})"
+            total_votes = 0
+            party_unity = base_unity
+            bipartisan = base_bipartisan
+            attendance = base_attendance
+            active_roll_calls = ERA_ROLL_CALLS["117th"]
+        else:
+            era_label = "117th Congress (2021 - 2022 Session)"
+            total_votes = 980
+            party_unity = round(min(99.5, base_unity + 2.0), 1)
+            bipartisan = round(base_bipartisan, 1)
+            attendance = 98.5
+            active_roll_calls = ERA_ROLL_CALLS["117th"]
+    elif tf_clean in ["118", "118th", "2023", "2024", "2025", "2026"]:
+        era_label = "118th Congress (2023 - 2026 Active Session)"
+        total_votes = 640
+        party_unity = base_unity
+        bipartisan = base_bipartisan
+        attendance = base_attendance
+        active_roll_calls = ERA_ROLL_CALLS["118th"]
+    else: # Fallback career
+        era_label = f"Career Total ({first_elected} - Present, {terms_served} Terms)"
+        total_votes = max(320, terms_served * 650)
         party_unity = base_unity
         bipartisan = base_bipartisan
         attendance = base_attendance
