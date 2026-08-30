@@ -280,14 +280,30 @@ class CongressionalWealthPL(BaseModel):
     wealth_growth_multiple: float = 2.5 # Current NW / Starting NW
 
 class CivicEthicsConflictIndex(BaseModel):
-    ethics_risk_score: float = 5.0 # 0 (Clean / Minimum Risk) to 100 (Severe Ethics Conflict)
-    risk_level_label: str = "LOW ETHICS RISK / CLEAN" # "LOW ETHICS RISK", "MODERATE CONFLICT", "ELEVATED JURISDICTION OVERLAP", "HIGH CONFLICT RISK"
-    stock_trading_conflict_pts: float = 0.0 # Points from trading equities in committee jurisdiction
-    pac_capture_pts: float = 2.0 # Points from PAC / lobbyist dependency
-    abnormal_wealth_pts: float = 3.0 # Points from wealth growth outpacing salary
+    ethics_risk_score: float = 5.0 # 0 (Clean / Minimum Risk) to 100 (Severe Corruption / Scandal Risk)
+    risk_level_label: str = "CLEAN RECORD / LOW RISK" # "CLEAN RECORD / LOW RISK", "MODERATE SPECIAL INTEREST EXPOSURE", "ELEVATED CONFLICT OF INTEREST", "HIGH SCANDAL & ETHICS RISK"
+    stock_trading_conflict_pts: float = 0.0 # 0 - 35 pts (Trading equities in committee jurisdiction / late STOCK Act filings)
+    pac_capture_pts: float = 2.0 # 0 - 30 pts (Corporate PAC & lobbyist cash dependency)
+    abnormal_wealth_pts: float = 3.0 # 0 - 20 pts (Wealth acceleration multiple outpacing salary)
+    ethics_oversight_pts: float = 0.0 # 0 - 15 pts (Office of Congressional Ethics inquiries, censures, fines)
     conflict_drivers: List[str] = Field(default_factory=list)
     clean_indicators: List[str] = Field(default_factory=list)
+    flagged_transactions_details: List[str] = Field(default_factory=list)
+    oversight_inquiries: List[str] = Field(default_factory=list)
     ethics_narrative: str = "Zero individual stock trades disclosed. Fully compliant with STOCK Act standards."
+
+class WalletVoteItem(BaseModel):
+    issue_title: str
+    bill_number: str
+    member_vote: str # "YES", "NO", "ABSTAIN"
+    wallet_impact: str
+    consumer_verdict: str # "CONSUMER SAVINGS VOTE", "INCREASED COST / OPPOSITION"
+
+class EconomicWalletScorecard(BaseModel):
+    pocketbook_score_pct: float = 85.0
+    pocketbook_grade: str = "A"
+    pocketbook_summary: str = "Strong voting record supporting consumer cost-of-living reductions and drug pricing relief."
+    key_wallet_votes: List[WalletVoteItem] = Field(default_factory=list)
 
 class RhetoricVsRealityAudit(BaseModel):
     topic: str
@@ -319,6 +335,7 @@ class CongressionalProfile(BaseModel):
     legislative_pipeline: LegislativePipelineStats = Field(default_factory=LegislativePipelineStats)
     wealth_pl: CongressionalWealthPL = Field(default_factory=CongressionalWealthPL)
     ethics_risk: CivicEthicsConflictIndex = Field(default_factory=CivicEthicsConflictIndex)
+    wallet_scorecard: EconomicWalletScorecard = Field(default_factory=EconomicWalletScorecard)
     rhetoric_audits: List[RhetoricVsRealityAudit] = Field(default_factory=list)
     challenger_preview: Optional[ChallengerMatchup] = None
     scouting: ScoutingCard

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Congress Civic Analytics | Lawmaker Dossiers, Leaderboards & Voter Matchmaker</title>
+  <title>Congress Civic Analytics | Lawmaker Dossiers, Leaderboards & Corruption Watch</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -146,7 +146,7 @@
     <div class="flex items-center gap-3">
       <button onclick="openMethodologyModal()" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1">
         <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
-        <span>Methodology & Data Sources</span>
+        <span>Methodology & 10-Point Scale</span>
       </button>
       <button id="manualSyncBtn" onclick="triggerManualSync()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-medium flex items-center gap-1.5 transition-colors">
         <i data-lucide="refresh-cw" class="w-3 h-3 text-cyan-400"></i>
@@ -169,7 +169,7 @@
             <span class="font-black text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">CONGRESS</span>
             <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-cyan-950 text-cyan-400 border border-cyan-800 uppercase tracking-wider">CIVIC ANALYTICS</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-medium -mt-0.5">Nonpartisan Lawmaker Dossiers & Wealth Accountability</p>
+          <p class="text-[11px] text-slate-400 font-medium -mt-0.5">Nonpartisan Lawmaker Dossiers & Corruption Watch</p>
         </div>
       </div>
 
@@ -229,11 +229,11 @@
             <span class="px-2.5 py-0.5 rounded text-[10px] font-black bg-amber-950 text-amber-400 border border-amber-800 uppercase tracking-wider">
               118th CONGRESS POWER BENCHMARKS
             </span>
-            <span class="text-xs text-slate-400">537 Lawmakers Tracked</span>
+            <span class="text-xs text-slate-400">537 Lawmakers Tracked &bull; Standard 10-Point Scale</span>
           </div>
-          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Congressional Power Rankings & Candidate Intelligence</h1>
+          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Congressional Power Rankings & Corruption Watch</h1>
           <p class="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-            Nonpartisan rankings measuring institutional output, constituent fidelity, campaign funding independence, and congressional wealth trajectories.
+            Nonpartisan rankings measuring institutional output, constituent fidelity, campaign funding independence, and congressional wealth trajectories on a standard 100-point scale (A: 90-100, B: 80-89, C: 70-79, D: 60-69, F: &lt;60).
           </p>
         </div>
 
@@ -317,7 +317,8 @@
         <div>
           <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Sort By Metric</label>
           <select id="mainRankSortMetric" onchange="filterAndRenderRankings()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-bold text-cyan-400">
-            <option value="overall_score">🌟 Overall 5-Pillar Score (0-100 / Grade)</option>
+            <option value="overall_score">🌟 Overall 5-Pillar Score (0-100 / Grade A-F)</option>
+            <option value="ethics_risk_score">🛡️ Corruption & Scandal Risk (0-100 Cleanest First)</option>
             <option value="floor_attendance">🗳️ Floor Roll Call Attendance %</option>
             <option value="constituent_sync">🎯 Constituent Demographic Sync %</option>
             <option value="bipartisanship_velocity">🤝 Bipartisanship Velocity %</option>
@@ -326,7 +327,6 @@
             <option value="bills_sponsored">📜 Total Bills Sponsored</option>
             <option value="earmarks_millions">💰 Community Earmarks Secured ($M)</option>
             <option value="wealth_growth_multiple">📈 Net Worth Growth Multiple in Office</option>
-            <option value="ethics_risk_score">🛡️ Ethics & Conflict Risk Score (Cleanest First)</option>
           </select>
         </div>
 
@@ -358,7 +358,7 @@
             <i data-lucide="shield" class="w-4 h-4"></i>
             <span>Top Rated Democrats</span>
           </h3>
-          <span class="text-xs text-slate-500 font-mono">5-Pillar Score</span>
+          <span class="text-xs text-slate-500 font-mono">Score / Grade</span>
         </div>
         <div id="spotlightDemList" class="space-y-2"></div>
       </div>
@@ -370,7 +370,7 @@
             <i data-lucide="shield" class="w-4 h-4"></i>
             <span>Top Rated Republicans</span>
           </h3>
-          <span class="text-xs text-slate-500 font-mono">5-Pillar Score</span>
+          <span class="text-xs text-slate-500 font-mono">Score / Grade</span>
         </div>
         <div id="spotlightRepList" class="space-y-2"></div>
       </div>
@@ -382,7 +382,7 @@
             <i data-lucide="shield" class="w-4 h-4"></i>
             <span>Top Rated Independents</span>
           </h3>
-          <span class="text-xs text-slate-500 font-mono">5-Pillar Score</span>
+          <span class="text-xs text-slate-500 font-mono">Score / Grade</span>
         </div>
         <div id="spotlightIndList" class="space-y-2"></div>
       </div>
@@ -464,24 +464,24 @@
           </div>
         </div>
 
-        <!-- Right: Clickable Legislative Rating & Governance Archetype -->
+        <!-- Right: Clickable Legislative Rating (10-Point Scale A-F) & Governance Archetype -->
         <div class="flex flex-wrap sm:flex-nowrap items-center gap-4 w-full lg:w-auto justify-between lg:justify-end">
           
           <!-- Clickable Rating Card -->
-          <div onclick="openRatingModal()" class="clickable-card bg-slate-950/90 border border-slate-800 rounded-xl p-4 text-center min-w-[130px] group hover:border-cyan-500 flex-shrink-0">
+          <div onclick="openRatingModal()" class="clickable-card bg-slate-950/90 border border-slate-800 rounded-xl p-4 text-center min-w-[140px] group hover:border-cyan-500 flex-shrink-0">
             <div class="flex items-center justify-center gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-              <span>Rating</span>
-              <span class="info-btn" title="Click for complete 5-pillar mathematical breakdown">ℹ</span>
+              <span>Legislative Rating</span>
+              <span class="info-btn" title="Click for complete 10-point bracket breakdown">ℹ</span>
             </div>
             <div id="draftGrade" class="text-4xl font-black text-white group-hover:text-cyan-400 transition-colors">A-</div>
             <div id="draftScore" class="text-[11px] text-slate-400 font-semibold mt-0.5">83.8 / 100 Pts</div>
             <div class="mt-1 text-[9px] font-bold text-cyan-400 uppercase tracking-wider flex items-center justify-center gap-0.5">
-              <span>Details</span>
+              <span>5-Pillar Score</span>
               <i data-lucide="chevron-right" class="w-2.5 h-2.5"></i>
             </div>
           </div>
 
-          <!-- Governance Style Archetype (NO TRUNCATION, FULL READABILITY) -->
+          <!-- Governance Style Archetype -->
           <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 max-w-sm">
             <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
               <i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i>
@@ -504,8 +504,72 @@
       </div>
     </div>
 
-    <!-- ROW: CONGRESSIONAL WEALTH P&L & ETHICS / CONFLICT RISK -->
+    <!-- ROW: CONGRESSIONAL CORRUPTION & SCANDAL WATCH & WEALTH P&L -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Congressional Corruption & Scandal Watch Card -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="shield-alert" class="w-4 h-4 text-cyan-400"></i>
+              <span>Corruption & Scandal Watch Index</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">STOCK Act trading, dark money capture & oversight inquiries</p>
+          </div>
+          <button onclick="openEthicsModal()" class="px-2.5 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 text-cyan-400 border border-cyan-800 text-xs font-bold flex items-center gap-1">
+            <span>Ethics Audit</span> &rarr;
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Risk Level Assessment</div>
+            <div id="ethicsRiskLabel" class="text-sm font-black text-emerald-400 mt-0.5">CLEAN RECORD / LOW RISK</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Scandal Risk Score</div>
+            <div id="ethicsRiskScore" class="text-2xl font-black text-white font-mono">12.4 <span class="text-xs text-slate-500 font-normal">/ 100</span></div>
+          </div>
+        </div>
+
+        <!-- 4 Scandal Pillars Progress Bars -->
+        <div class="space-y-2 text-xs">
+          <div>
+            <div class="flex justify-between text-[11px] mb-0.5">
+              <span class="text-slate-400">STOCK Act & Committee Conflicts (35 pts max):</span>
+              <span id="ethStockPts" class="text-slate-200 font-mono font-bold">0.0 / 35</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthStock" class="bg-cyan-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] mb-0.5">
+              <span class="text-slate-400">PAC & Dark Money Capture (30 pts max):</span>
+              <span id="ethPacPts" class="text-slate-200 font-mono font-bold">2.0 / 30</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthPac" class="bg-purple-500 h-1.5 rounded-full" style="width: 7%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] mb-0.5">
+              <span class="text-slate-400">Abnormal Wealth Acceleration (20 pts max):</span>
+              <span id="ethWealthPts" class="text-slate-200 font-mono font-bold">3.0 / 20</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthWealth" class="bg-emerald-500 h-1.5 rounded-full" style="width: 15%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] mb-0.5">
+              <span class="text-slate-400">Ethics Inquiries & Disciplinary Record (15 pts max):</span>
+              <span id="ethOversightPts" class="text-slate-200 font-mono font-bold">0.0 / 15</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden"><div id="barEthOversight" class="bg-red-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Key Ethics Indicators:</div>
+          <ul id="ethicsFactorsList" class="text-xs text-slate-300 space-y-1"></ul>
+        </div>
+      </div>
 
       <!-- Congressional Wealth Gain / P&L Card -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
@@ -545,36 +609,28 @@
         </div>
       </div>
 
-      <!-- Civic Ethics & Conflict of Interest Risk Rating -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    </div>
+
+    <!-- NEW SECTION: VOTER POCKETBOOK & HOUSEHOLD WALLET SCORECARD -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <div>
           <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-            <i data-lucide="shield-alert" class="w-4 h-4 text-cyan-400"></i>
-            <span>Ethics & Conflict Risk Index</span>
+            <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
+            <span>Voter Pocketbook & Household Wallet Scorecard</span>
           </h2>
-          <span class="info-btn" onclick="openInfoModal('ethics_risk')">ℹ</span>
+          <p class="text-xs text-slate-400 mt-0.5">How this lawmaker voted on everyday cost-of-living, prescription drug, and inflation bills</p>
         </div>
-
-        <div class="flex items-center justify-between bg-slate-950 p-3.5 rounded-xl border border-slate-800">
-          <div>
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Risk Level Assessment</div>
-            <div id="ethicsRiskLabel" class="text-sm font-black text-emerald-400 mt-0.5">LOW ETHICS RISK / CLEAN</div>
-          </div>
-          <div class="text-right">
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Conflict Score</div>
-            <div id="ethicsRiskScore" class="text-2xl font-black text-white font-mono">12.4 <span class="text-xs text-slate-500 font-normal">/ 100</span></div>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ethics & Conflict Factors:</div>
-          <ul id="ethicsFactorsList" class="text-xs text-slate-300 space-y-1"></ul>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400">Pocketbook Score:</span>
+          <span id="walletScoreBadge" class="px-2.5 py-0.5 rounded text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">80.0% (B)</span>
         </div>
       </div>
 
+      <div id="walletVotesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
     </div>
 
-    <!-- NEW ROW: RHETORIC VS REALITY PLEDGE AUDIT & 2026 CHALLENGER PREVIEW -->
+    <!-- ROW: RHETORIC VS REALITY PLEDGE AUDIT & 2026 CHALLENGER PREVIEW -->
     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
       
       <!-- Rhetoric vs Reality Audit (8 cols) -->
@@ -895,7 +951,7 @@
       <div class="flex items-center gap-4">
         <button onclick="openMethodologyModal()" class="text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1">
           <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-          <span>Full Methodology & Mathematical Formulas</span>
+          <span>Full Methodology & 10-Point Scale</span>
         </button>
         <a href="https://github.com/SaviorOfSanity/congress-nextgen-stats" target="_blank" class="text-slate-400 hover:text-slate-200 flex items-center gap-1">
           <i data-lucide="github" class="w-3.5 h-3.5"></i>
@@ -906,8 +962,70 @@
   </footer>
 
   <!-- ============================================================== -->
-  <!-- MODAL: VOTER-CANDIDATE VALUE MATCHMAKER (#matchmakerModal)      -->
+  <!-- MODAL: ETHICS & CORRUPTION SCANDAL DOSSIER (#ethicsModal)      -->
   <!-- ============================================================== -->
+  <div id="ethicsModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'ethicsModal')">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl modal-box p-6 shadow-2xl space-y-6">
+      <div class="flex items-start justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-red-950 border border-red-700 flex items-center justify-center text-red-400 flex-shrink-0">
+            <i data-lucide="shield-alert" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-black text-white">Congressional Corruption & Scandal Watch Dossier</h2>
+            <p id="modalEthicsSubtitle" class="text-xs text-slate-400 font-medium mt-0.5">STOCK Act trading, dark money capture & oversight inquiries</p>
+          </div>
+        </div>
+        <button onclick="closeModal('ethicsModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Score Header -->
+      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall Scandal & Conflict Risk</span>
+          <div id="modalEthicsRiskLabel" class="text-base font-black text-emerald-400 mt-0.5">CLEAN RECORD / LOW RISK</div>
+        </div>
+        <div class="text-right">
+          <div id="modalEthicsScore" class="text-3xl font-black text-white font-mono">12.4 <span class="text-xs text-slate-500 font-normal">/ 100 Risk</span></div>
+        </div>
+      </div>
+
+      <!-- Itemized Flagged Trades & Oversight -->
+      <div class="space-y-4 text-xs">
+        <div class="space-y-2">
+          <h3 class="font-bold text-slate-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span>STOCK Act Committee Jurisdiction Overlaps:</span>
+          </h3>
+          <div id="modalFlaggedTradesList" class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-slate-300 space-y-1.5"></div>
+        </div>
+
+        <div class="space-y-2">
+          <h3 class="font-bold text-slate-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+            <i data-lucide="file-warning" class="w-3.5 h-3.5 text-red-400"></i>
+            <span>Ethics Committee & OCE Oversight Records:</span>
+          </h3>
+          <div id="modalOversightInquiriesList" class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-slate-300 space-y-1.5"></div>
+        </div>
+
+        <div class="space-y-2">
+          <h3 class="font-bold text-slate-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+            <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>Clean Governance Indicators:</span>
+          </h3>
+          <div id="modalCleanIndicatorsList" class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-slate-300 space-y-1.5"></div>
+        </div>
+      </div>
+
+      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 leading-relaxed" id="modalEthicsNarrative"></div>
+      
+      <div class="flex justify-end pt-2">
+        <button onclick="closeModal('ethicsModal')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">Close Dossier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [EXISTING POPUP MODALS WITH FIXED TOP CUTOFF] -->
   <div id="matchmakerModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'matchmakerModal')">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl modal-box p-6 shadow-2xl space-y-6">
       <div class="flex items-start justify-between border-b border-slate-800 pb-4">
@@ -1035,7 +1153,6 @@
     </div>
   </div>
 
-  <!-- [EXISTING POPUP MODALS WITH FIXED TOP CUTOFF] -->
   <div id="ratingModal" class="hidden modal-backdrop" onclick="handleBackdropClick(event, 'ratingModal')">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl modal-box p-6 shadow-2xl space-y-5">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -1178,13 +1295,26 @@
         <div class="flex items-start gap-4">
           <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-700 flex items-center justify-center text-cyan-400 flex-shrink-0"><i data-lucide="book-open" class="w-6 h-6"></i></div>
           <div>
-            <h2 class="text-xl font-black text-white">Open Methodology & Data Sources</h2>
-            <p class="text-xs text-slate-400 font-medium mt-0.5">Full Mathematical Transparency & Nonpartisan Standards</p>
+            <h2 class="text-xl font-black text-white">Open Methodology & 10-Point Scale</h2>
+            <p class="text-xs text-slate-400 font-medium mt-0.5">Standard 10-Point Bracket Grading & Corruption Rubric</p>
           </div>
         </div>
         <button onclick="closeModal('methodologyModal')" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 leading-relaxed" id="methodologyMission"></div>
+      
+      <!-- 10-Point Bracket Chart -->
+      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+        <h4 class="font-bold text-slate-200 text-xs uppercase">Standard 10-Point Grade Bracket Distribution</h4>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+          <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800"><div class="font-black text-cyan-400 text-sm">A (90-100)</div><div class="text-[10px] text-slate-400 mt-0.5">Exemplary Leadership</div></div>
+          <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800"><div class="font-black text-emerald-400 text-sm">B (80-89)</div><div class="text-[10px] text-slate-400 mt-0.5">Effective Lawmaker</div></div>
+          <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800"><div class="font-black text-blue-400 text-sm">C (70-79)</div><div class="text-[10px] text-slate-400 mt-0.5">Standard Majority</div></div>
+          <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800"><div class="font-black text-amber-400 text-sm">D (60-69)</div><div class="text-[10px] text-slate-400 mt-0.5">Underperforming</div></div>
+          <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800"><div class="font-black text-red-400 text-sm">F (&lt;60)</div><div class="text-[10px] text-slate-400 mt-0.5">At-Risk / Absentee</div></div>
+        </div>
+      </div>
+
       <div class="space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Official Data Sources & API Endpoints</h3>
         <div id="methodologySourcesList" class="space-y-2.5"></div>
@@ -1282,11 +1412,6 @@
         title: "Congressional Wealth P&L & Trajectory",
         subtitle: "Financial Disclosure & Asset Analysis",
         content: "Calculates the estimated change in personal net worth from the year first elected to present, juxtaposed against cumulative congressional salary earned ($174,000/year base) and standard S&P 500 equity appreciation."
-      },
-      "ethics_risk": {
-        title: "Ethics & Conflict Risk Index (0 - 100)",
-        subtitle: "Congressional Ethics & STOCK Act Auditing",
-        content: "Composite index auditing: (1) STOCK Act equity trades in industries under assigned committee jurisdictions, (2) Corporate PAC dependency %, and (3) Net worth growth acceleration multiples significantly exceeding salary baselines."
       },
       "tug_of_war": {
         title: "Constituents vs Special Interest Donors",
@@ -1524,6 +1649,8 @@
         let metricDisplay = "";
         if (sortMetric === "overall_score") {
           metricDisplay = `<strong class="text-cyan-400 font-mono text-sm">${m.overall_score.toFixed(1)}</strong> <span class="text-[10px] text-slate-400">/ 100</span>`;
+        } else if (sortMetric === "ethics_risk_score") {
+          metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${m.ethics_risk_score.toFixed(1)}</strong> <span class="text-[10px] text-slate-400">/ 100 Risk</span>`;
         } else if (sortMetric.includes("pct") || sortMetric.includes("attendance") || sortMetric.includes("sync") || sortMetric.includes("velocity")) {
           const val = parseFloat(m[sortMetric]) || 0;
           metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${val.toFixed(1)}%</strong>`;
@@ -1531,8 +1658,6 @@
           metricDisplay = `<strong class="text-amber-400 font-mono text-sm">$${m.earmarks_millions.toFixed(1)}M</strong>`;
         } else if (sortMetric === "wealth_growth_multiple") {
           metricDisplay = `<strong class="text-emerald-400 font-mono text-sm">${m.wealth_growth_multiple}x</strong> <span class="text-[10px] text-slate-400">(${m.net_worth_growth_dollars})</span>`;
-        } else if (sortMetric === "ethics_risk_score") {
-          metricDisplay = `<strong class="text-cyan-400 font-mono text-sm">${m.ethics_risk_score}</strong> <span class="text-[10px] text-slate-400">(${m.ethics_risk_label})</span>`;
         } else {
           metricDisplay = `<strong class="text-white font-mono text-sm">${m[sortMetric]}</strong>`;
         }
@@ -1680,6 +1805,7 @@
         const consts = p.constituents;
         const wealth = p.wealth_pl || {};
         const ethics = p.ethics_risk || {};
+        const wallet = p.wallet_scorecard || {};
         const don = p.donor_influence || {};
 
         document.getElementById("memberName").textContent = bio.full_name;
@@ -1722,6 +1848,45 @@
           badgesContainer.appendChild(btn);
         });
 
+        // Corruption & Scandal Watch
+        document.getElementById("ethicsRiskScore").innerHTML = `${(ethics.ethics_risk_score || 12.0).toFixed(1)} <span class="text-xs text-slate-500 font-normal">/ 100</span>`;
+        document.getElementById("ethicsRiskLabel").textContent = ethics.risk_level_label || "CLEAN RECORD / LOW RISK";
+        const ethColor = (ethics.ethics_risk_score || 0) <= 25 ? "text-emerald-400" : ((ethics.ethics_risk_score || 0) <= 50 ? "text-cyan-400" : ((ethics.ethics_risk_score || 0) <= 75 ? "text-amber-400" : "text-red-400"));
+        document.getElementById("ethicsRiskLabel").className = `text-sm font-black mt-0.5 ${ethColor}`;
+
+        // 4 Scandal Pillars
+        const stockPts = ethics.stock_trading_conflict_pts || 0.0;
+        const pacPts = ethics.pac_capture_pts || 0.0;
+        const wealthPts = ethics.abnormal_wealth_pts || 0.0;
+        const overPts = ethics.ethics_oversight_pts || 0.0;
+
+        document.getElementById("ethStockPts").textContent = `${stockPts.toFixed(1)} / 35`;
+        document.getElementById("barEthStock").style.width = `${(stockPts / 35.0) * 100}%`;
+
+        document.getElementById("ethPacPts").textContent = `${pacPts.toFixed(1)} / 30`;
+        document.getElementById("barEthPac").style.width = `${(pacPts / 30.0) * 100}%`;
+
+        document.getElementById("ethWealthPts").textContent = `${wealthPts.toFixed(1)} / 20`;
+        document.getElementById("barEthWealth").style.width = `${(wealthPts / 20.0) * 100}%`;
+
+        document.getElementById("ethOversightPts").textContent = `${overPts.toFixed(1)} / 15`;
+        document.getElementById("barEthOversight").style.width = `${(overPts / 15.0) * 100}%`;
+
+        const ethList = document.getElementById("ethicsFactorsList");
+        ethList.innerHTML = "";
+        (ethics.clean_indicators || []).slice(0, 2).forEach(c => {
+          const li = document.createElement("li");
+          li.className = "flex items-start gap-1.5 text-emerald-400";
+          li.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span class="text-slate-300">${c}</span>`;
+          ethList.appendChild(li);
+        });
+        (ethics.conflict_drivers || []).slice(0, 2).forEach(d => {
+          const li = document.createElement("li");
+          li.className = "flex items-start gap-1.5 text-amber-400";
+          li.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span class="text-slate-300">${d}</span>`;
+          ethList.appendChild(li);
+        });
+
         // Congressional Wealth P&L
         document.getElementById("plStartingNW").textContent = wealth.starting_net_worth || "$50k";
         document.getElementById("plCurrentNW").textContent = wealth.current_net_worth || "$125k";
@@ -1730,25 +1895,29 @@
         document.getElementById("plSalaryEarned").textContent = `$${(wealth.total_salary_earned_millions || 1.39).toFixed(2)}M`;
         document.getElementById("plAssessmentText").textContent = wealth.wealth_trajectory_assessment || "Salary-consistent wealth growth with standard index appreciation.";
 
-        // Ethics & Conflict Risk
-        document.getElementById("ethicsRiskScore").innerHTML = `${(ethics.ethics_risk_score || 12.0).toFixed(1)} <span class="text-xs text-slate-500 font-normal">/ 100</span>`;
-        document.getElementById("ethicsRiskLabel").textContent = ethics.risk_level_label || "LOW ETHICS RISK / CLEAN";
-        const ethColor = (ethics.ethics_risk_score || 0) <= 25 ? "text-emerald-400" : ((ethics.ethics_risk_score || 0) <= 50 ? "text-cyan-400" : "text-amber-400");
-        document.getElementById("ethicsRiskLabel").className = `text-sm font-black mt-0.5 ${ethColor}`;
+        // Voter Pocketbook & Wallet Scorecard
+        document.getElementById("walletScoreBadge").textContent = `${(wallet.pocketbook_score_pct || 80.0).toFixed(0)}% (${wallet.pocketbook_grade || 'B'})`;
+        const walletGrid = document.getElementById("walletVotesGrid");
+        walletGrid.innerHTML = "";
+        (wallet.key_wallet_votes || []).forEach(v => {
+          const card = document.createElement("div");
+          card.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2 text-xs";
+          
+          let verdictBadge = v.consumer_verdict.includes("SAVINGS") ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800";
+          let voteBadge = v.member_vote === "YES" ? "text-cyan-400" : "text-slate-400";
 
-        const ethList = document.getElementById("ethicsFactorsList");
-        ethList.innerHTML = "";
-        (ethics.clean_indicators || []).forEach(c => {
-          const li = document.createElement("li");
-          li.className = "flex items-start gap-1.5 text-emerald-400";
-          li.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span class="text-slate-300">${c}</span>`;
-          ethList.appendChild(li);
-        });
-        (ethics.conflict_drivers || []).forEach(d => {
-          const li = document.createElement("li");
-          li.className = "flex items-start gap-1.5 text-amber-400";
-          li.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span class="text-slate-300">${d}</span>`;
-          ethList.appendChild(li);
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+              <div class="font-bold text-white text-xs">${v.issue_title}</div>
+              <span class="px-2 py-0.5 rounded text-[9px] font-black border uppercase ${verdictBadge}">${v.consumer_verdict}</span>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400">
+              <span>${v.bill_number}</span>
+              <span class="font-bold ${voteBadge}">Voted: ${v.member_vote}</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">${v.wallet_impact}</p>
+          `;
+          walletGrid.appendChild(card);
         });
 
         // Rhetoric vs Reality Audits
@@ -1905,6 +2074,62 @@
         lucide.createIcons();
       } catch (err) {
         console.error("Critical rendering error in renderProfile:", err);
+      }
+    }
+
+    // ==============================================================
+    // ETHICS & CORRUPTION DOSSIER MODAL
+    // ==============================================================
+    async function openEthicsModal() {
+      try {
+        const res = await fetch(`/api/ethics-dossier/${currentMemberId}`);
+        if (!res.ok) throw new Error("Failed to load ethics dossier");
+        const data = await res.json();
+
+        document.getElementById("modalEthicsSubtitle").textContent = `${data.full_name} (${data.party}-${data.state}) • Corruption & Scandal Risk Audit`;
+        document.getElementById("modalEthicsRiskLabel").textContent = data.risk_level_label;
+        document.getElementById("modalEthicsScore").innerHTML = `${data.ethics_risk_score.toFixed(1)} <span class="text-xs text-slate-500 font-normal">/ 100 Risk</span>`;
+
+        const tradesList = document.getElementById("modalFlaggedTradesList");
+        tradesList.innerHTML = "";
+        if (!data.flagged_transactions_details || data.flagged_transactions_details.length === 0) {
+          tradesList.innerHTML = `<div class="text-emerald-400 flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5"></i><span>Zero individual stock trading conflicts in regulated committee jurisdictions. Fully compliant with STOCK Act.</span></div>`;
+        } else {
+          data.flagged_transactions_details.forEach(t => {
+            const div = document.createElement("div");
+            div.className = "text-amber-300 flex items-start gap-1.5";
+            div.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span>${t}</span>`;
+            tradesList.appendChild(div);
+          });
+        }
+
+        const inquiriesList = document.getElementById("modalOversightInquiriesList");
+        inquiriesList.innerHTML = "";
+        if (!data.oversight_inquiries || data.oversight_inquiries.length === 0) {
+          inquiriesList.innerHTML = `<div class="text-emerald-400 flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5"></i><span>Clean oversight record: Zero Office of Congressional Ethics (OCE) sanctions or House/Senate reprimands on file.</span></div>`;
+        } else {
+          data.oversight_inquiries.forEach(inq => {
+            const div = document.createElement("div");
+            div.className = "text-red-400 flex items-start gap-1.5";
+            div.innerHTML = `<i data-lucide="file-warning" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span>${inq}</span>`;
+            inquiriesList.appendChild(div);
+          });
+        }
+
+        const cleanList = document.getElementById("modalCleanIndicatorsList");
+        cleanList.innerHTML = "";
+        (data.clean_indicators || []).forEach(ci => {
+          const div = document.createElement("div");
+          div.className = "text-emerald-400 flex items-start gap-1.5";
+          div.innerHTML = `<i data-lucide="shield-check" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5"></i><span class="text-slate-300">${ci}</span>`;
+          cleanList.appendChild(div);
+        });
+
+        document.getElementById("modalEthicsNarrative").textContent = data.ethics_narrative;
+        document.getElementById("ethicsModal").classList.remove("hidden");
+        lucide.createIcons();
+      } catch (err) {
+        alert("Ethics dossier error: " + err);
       }
     }
 

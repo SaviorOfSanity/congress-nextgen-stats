@@ -277,6 +277,35 @@ async def api_district_lookup(query: str):
         logger.exception("Failed district lookup")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/ethics-dossier/{bioguide_id}")
+async def api_ethics_dossier(bioguide_id: str):
+    """Retrieve detailed Congressional Corruption & Scandal breakdown for a lawmaker."""
+    try:
+        profile = build_full_profile(bioguide_id)
+        return {
+            "bioguide_id": profile.bio.bioguide_id,
+            "full_name": profile.bio.full_name,
+            "party": profile.bio.party,
+            "chamber": profile.bio.chamber,
+            "state": profile.bio.state,
+            "ethics_risk_score": profile.ethics_risk.ethics_risk_score,
+            "risk_level_label": profile.ethics_risk.risk_level_label,
+            "stock_trading_conflict_pts": profile.ethics_risk.stock_trading_conflict_pts,
+            "pac_capture_pts": profile.ethics_risk.pac_capture_pts,
+            "abnormal_wealth_pts": profile.ethics_risk.abnormal_wealth_pts,
+            "ethics_oversight_pts": profile.ethics_risk.ethics_oversight_pts,
+            "clean_indicators": profile.ethics_risk.clean_indicators,
+            "conflict_drivers": profile.ethics_risk.conflict_drivers,
+            "flagged_transactions_details": profile.ethics_risk.flagged_transactions_details,
+            "oversight_inquiries": profile.ethics_risk.oversight_inquiries,
+            "ethics_narrative": profile.ethics_risk.ethics_narrative,
+            "stock_trading_profile": profile.stock_trading.model_dump(),
+            "wealth_pl": profile.wealth_pl.model_dump()
+        }
+    except Exception as e:
+        logger.exception("Failed to retrieve ethics dossier")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # -------------------------------------------------------------
 # OPEN METHODOLOGY & DATA SOURCES CITATION ENDPOINT
 # -------------------------------------------------------------
