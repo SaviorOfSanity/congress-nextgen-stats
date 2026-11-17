@@ -1,6 +1,6 @@
 """
-Ultra-Fast Native Video Assembler and Encoder for Congressional NextGenStats
-Renders broadcast scouting videos in seconds using optimized FFmpeg stream pipelines.
+Ultra-Fast Native Video Assembler and Encoder for Congress Civic Analytics
+Renders broadcast lawmaker dossier videos in seconds using optimized FFmpeg stream pipelines.
 """
 import logging
 import subprocess

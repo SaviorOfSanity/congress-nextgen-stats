@@ -2,13 +2,36 @@
 Congressional Committees and Caucuses Database & Roster Intelligence
 Provides jurisdiction mapping, agency oversight lists, subcommittee structures, and full member rosters.
 """
+import json
 from typing import Dict, List, Optional, Any
+from backend.config import CACHE_DIR
 from backend.models import (
     CommitteeDossier,
     CommitteeMemberEntry,
     CommitteeSubcommitteeDetail
 )
 from backend.ingestion.congress_api import load_all_congress_members
+
+_OFFICIAL_COMMS_PATH = CACHE_DIR / "committees_official.json"
+_OFFICIAL_COMMS_CACHE: Optional[Dict[str, Any]] = None
+
+
+def reset_committee_caches() -> None:
+    global _OFFICIAL_COMMS_CACHE
+    _OFFICIAL_COMMS_CACHE = None
+
+
+def _get_official_committees() -> Dict[str, Any]:
+    global _OFFICIAL_COMMS_CACHE
+    if _OFFICIAL_COMMS_CACHE is None:
+        if _OFFICIAL_COMMS_PATH.exists():
+            try:
+                _OFFICIAL_COMMS_CACHE = json.loads(_OFFICIAL_COMMS_PATH.read_text(encoding="utf-8")).get("committees", {})
+            except Exception:
+                _OFFICIAL_COMMS_CACHE = {}
+        else:
+            _OFFICIAL_COMMS_CACHE = {}
+    return _OFFICIAL_COMMS_CACHE
 
 COMMITTEE_DATABASE = {
     "house committee on oversight and accountability": {
@@ -90,8 +113,8 @@ COMMITTEE_DATABASE = {
         "type": "Standing Committee",
         "jurisdiction": "Oversees the entire domestic economy, commercial banking system, Federal Reserve monetary policy, Wall Street securities exchanges, housing and urban development, international monetary organizations, and insurance markets.",
         "agencies": ["Federal Reserve System (Fed)", "Securities and Exchange Commission (SEC)", "Department of the Treasury", "Federal Deposit Insurance Corporation (FDIC)", "Consumer Financial Protection Bureau (CFPB)", "Department of Housing and Urban Development (HUD)"],
-        "chair_bioguide": "M001156", # Patrick McHenry
-        "chair_name": "Patrick McHenry",
+        "chair_bioguide": "H001072", # J. French Hill
+        "chair_name": "J. French Hill",
         "ranking_bioguide": "W000187", # Maxine Waters
         "ranking_name": "Maxine Waters",
         "subcommittees": [
@@ -126,10 +149,10 @@ COMMITTEE_DATABASE = {
         "type": "Standing Committee",
         "jurisdiction": "Oldest continuous standing committee in the House with broad jurisdiction over consumer protection, food and drug safety, clean air/water environmental policy, public health, interstate telecommunications, cybersecurity, and national energy grids.",
         "agencies": ["Department of Energy (DOE)", "Department of Health and Human Services (HHS)", "Food and Drug Administration (FDA)", "Environmental Protection Agency (EPA)", "Federal Communications Commission (FCC)", "Federal Trade Commission (FTC)"],
-        "chair_bioguide": "R000575", # Cathy McMorris Rodgers
-        "chair_name": "Cathy McMorris Rodgers",
-        "ranking_bioguide": "P000034", # Frank Pallone
-        "ranking_name": "Frank Pallone",
+        "chair_bioguide": "G000558", # Brett Guthrie
+        "chair_name": "Brett Guthrie",
+        "ranking_bioguide": "P000034", # Frank Pallone, Jr.
+        "ranking_name": "Frank Pallone, Jr.",
         "subcommittees": [
             {
                 "name": "Subcommittee on Health",
@@ -194,10 +217,10 @@ COMMITTEE_DATABASE = {
         "type": "Standing Committee",
         "jurisdiction": "Known as the 'Traffic Cop of the House.' Determines which bills reach the House floor, which amendments may be offered, and the debate terms under structured rule resolutions.",
         "agencies": ["House Floor Procedure", "Joint Committee on the Library", "Joint Committee on Printing"],
-        "chair_bioguide": "C001053", # Tom Cole
-        "chair_name": "Tom Cole",
-        "ranking_bioguide": "M000312", # Jim McGovern
-        "ranking_name": "Jim McGovern",
+        "chair_bioguide": "F000450", # Virginia Foxx
+        "chair_name": "Virginia Foxx",
+        "ranking_bioguide": "M000312", # James P. McGovern
+        "ranking_name": "James P. McGovern",
         "subcommittees": [
             {
                 "name": "Subcommittee on Legislative and Budget Process",
@@ -219,8 +242,8 @@ COMMITTEE_DATABASE = {
         "agencies": ["Department of the Interior (DOI)", "Bureau of Land Management (BLM)", "National Park Service (NPS)", "Bureau of Indian Affairs (BIA)", "U.S. Fish and Wildlife Service (USFWS)"],
         "chair_bioguide": "W000821", # Bruce Westerman
         "chair_name": "Bruce Westerman",
-        "ranking_bioguide": "G000551", # Raúl Grijalva
-        "ranking_name": "Raúl Grijalva",
+        "ranking_bioguide": "H001068", # Jared Huffman
+        "ranking_name": "Jared Huffman",
         "subcommittees": [
             {
                 "name": "Subcommittee on Energy and Mineral Resources",
@@ -244,10 +267,10 @@ COMMITTEE_DATABASE = {
         "type": "Standing Committee",
         "jurisdiction": "Conducts confirmation hearings for Article III federal judges and Supreme Court Justices. Oversees antitrust, civil rights, federal criminal justice statutes, patents, and Department of Justice administration.",
         "agencies": ["Department of Justice (DOJ)", "Federal Judiciary / Supreme Court", "FBI", "DEA", "ATF", "U.S. Marshals Service"],
-        "chair_bioguide": "D000563", # Dick Durbin
-        "chair_name": "Dick Durbin",
-        "ranking_bioguide": "G000386", # Chuck Grassley
-        "ranking_name": "Chuck Grassley",
+        "chair_bioguide": "G000386", # Chuck Grassley
+        "chair_name": "Chuck Grassley",
+        "ranking_bioguide": "D000563", # Richard J. Durbin
+        "ranking_name": "Richard J. Durbin",
         "subcommittees": [
             {
                 "name": "Subcommittee on Privacy, Technology, and the Law",
@@ -272,10 +295,10 @@ COMMITTEE_DATABASE = {
         "type": "Standing Committee",
         "jurisdiction": "Has constitutional responsibility to write the legislation that allocates federal discretionary funds to government agencies, departments, and programs for each fiscal year across all 12 annual spending bills.",
         "agencies": ["All Federal Executive Agencies", "Department of Defense", "Department of Transportation", "HHS", "NASA", "State Department"],
-        "chair_bioguide": "M001111", # Patty Murray
-        "chair_name": "Patty Murray",
-        "ranking_bioguide": "C001035", # Susan Collins
-        "ranking_name": "Susan Collins",
+        "chair_bioguide": "C001035", # Susan M. Collins
+        "chair_name": "Susan M. Collins",
+        "ranking_bioguide": "M001111", # Patty Murray
+        "ranking_name": "Patty Murray",
         "subcommittees": [
             {
                 "name": "Subcommittee on Defense",
@@ -325,8 +348,8 @@ COMMITTEE_DATABASE = {
         "type": "Congressional Caucus",
         "jurisdiction": "Influential conservative and libertarian congressional caucus advocating for constitutional originalism, balanced federal budgets, dramatic non-defense spending cuts, strict border security, and procedural decentralized power in the House.",
         "agencies": ["House Floor Leverage Coordination", "Conservative Policy Formulation"],
-        "chair_bioguide": "G000565", # Bob Good
-        "chair_name": "Bob Good",
+        "chair_bioguide": "H001052", # Andy Harris
+        "chair_name": "Andy Harris",
         "ranking_bioguide": None,
         "ranking_name": None,
         "subcommittees": [
@@ -347,10 +370,10 @@ COMMITTEE_DATABASE = {
         "type": "Congressional Caucus",
         "jurisdiction": "Bipartisan group equally split between Democrats and Republicans committed to finding common-ground solutions on infrastructure, national debt, immigration reform, and healthcare access.",
         "agencies": ["Bipartisan Coalition Building", "House Floor Rule Reform"],
-        "chair_bioguide": "F000466", # Brian Fitzpatrick
-        "chair_name": "Brian Fitzpatrick & Josh Gottheimer (Co-Chairs)",
-        "ranking_bioguide": None,
-        "ranking_name": None,
+        "chair_bioguide": "F000466", # Brian K. Fitzpatrick
+        "chair_name": "Brian K. Fitzpatrick",
+        "ranking_bioguide": "G000583", # Josh Gottheimer
+        "ranking_name": "Josh Gottheimer (Co-Chair)",
         "subcommittees": [
             {"name": "Bipartisan Infrastructure & Competitiveness Working Group", "focus_area": "Highway trust fund solvency and semiconductor supply chain reshoring."},
             {"name": "Fiscal Stability Working Group", "focus_area": "Bipartisan Fiscal Commission on long-term national debt sustainability."}
@@ -372,42 +395,117 @@ def clean_committee_query(q: str) -> str:
 
 def get_committee_dossier(committee_query: str) -> CommitteeDossier:
     """
-    Retrieve or build a comprehensive Committee Dossier with full member rosters.
+    Retrieve or build a comprehensive Committee Dossier with official 119th rosters,
+    Chairs, Ranking Members, and Subcommittees when available.
     """
     q = clean_committee_query(committee_query)
-    
-    # Try exact match or substring match
+    official_map = _get_official_committees()
+
+    # 1. Check live-synced official committee map first (49 House/Senate/Joint committees)
+    matched_official = None
+    for tid, odata in official_map.items():
+        oname = odata.get("name", "").lower()
+        if oname == q or q in oname or oname in q or tid.lower() == q:
+            matched_official = odata
+            break
+    if not matched_official:
+        q_words = [w for w in q.split() if len(w) > 3 and w not in ["house", "senate", "committee", "caucus"]]
+        if q_words:
+            for odata in official_map.values():
+                oname = odata.get("name", "").lower()
+                if ("senate" in q and odata.get("chamber") != "Senate") or ("house" in q and odata.get("chamber") != "House"):
+                    continue
+                if all(w in oname for w in q_words[:2]):
+                    matched_official = odata
+                    break
+
+    # 2. Match curated agency/priority descriptions or caucuses in COMMITTEE_DATABASE
     matched_key = None
     for k in COMMITTEE_DATABASE:
         if k in q or q in k:
             matched_key = k
             break
-            
     if not matched_key:
-        # Check partial keyword match (e.g. "oversight", "judiciary", "financial services", "progressive", "freedom")
         for k in COMMITTEE_DATABASE:
             words = [w for w in q.split() if len(w) > 3 and w not in ["house", "senate", "committee", "caucus"]]
-            if any(w in k for w in words):
+            if words and all(w in k for w in words[:2]):
                 matched_key = k
                 break
-                
+
+    # Fast exact official path (enriched with COMMITTEE_DATABASE oversight/agency lists when available)
+    if matched_official and (not matched_key or COMMITTEE_DATABASE[matched_key].get("type") != "Congressional Caucus"):
+        curated = COMMITTEE_DATABASE.get(matched_key, {}) if matched_key else {}
+        ch_chamber = matched_official.get("chamber", "House")
+
+        def _to_entry(raw_item: Dict[str, Any]) -> CommitteeMemberEntry:
+            return CommitteeMemberEntry(
+                bioguide_id=raw_item["bioguide_id"],
+                full_name=raw_item["full_name"],
+                party=raw_item["party"],
+                state=raw_item["state"],
+                district=None,
+                chamber=ch_chamber,
+                role=raw_item.get("role", "Member"),
+                image_url=raw_item.get("image_url"),
+                subcommittees=[],
+            )
+
+        chair_entry = _to_entry(matched_official["chair"]) if matched_official.get("chair") else None
+        ranking_entry = _to_entry(matched_official["ranking_member"]) if matched_official.get("ranking_member") else None
+        majority_members = [_to_entry(m) for m in matched_official.get("majority_members", [])]
+        minority_members = [_to_entry(m) for m in matched_official.get("minority_members", [])]
+
+        curated_subs = {s["name"].lower(): s["focus_area"] for s in curated.get("subcommittees", [])}
+        subcomms = [
+            CommitteeSubcommitteeDetail(
+                name=s["name"],
+                focus_area=curated_subs.get(s["name"].lower(), f"Official 119th Congress subcommittee jurisdiction under {matched_official['name']}.")
+            )
+            for s in matched_official.get("subcommittees", [])
+        ] or [
+            CommitteeSubcommitteeDetail(name=s["name"], focus_area=s["focus_area"])
+            for s in curated.get("subcommittees", [])
+        ]
+
+        jurisdiction = (
+            curated.get("jurisdiction")
+            or matched_official.get("jurisdiction")
+            or f"Official {ch_chamber} standing committee jurisdiction."
+        )
+        agencies = curated.get("agencies") or ["Relevant Federal Executive Departments", "Statutory Oversight Agencies"]
+        priorities = curated.get("active_priorities") or ["119th Congress Committee Markups, Hearings & Agency Oversight"]
+
+        return CommitteeDossier(
+            committee_code=matched_official["thomas_id"],
+            committee_name=matched_official["name"],
+            chamber=ch_chamber,
+            type="Select Committee" if "Select" in matched_official["name"] else "Standing Committee",
+            jurisdiction_overview=jurisdiction,
+            key_agencies_supervised=agencies,
+            subcommittees=subcomms,
+            chair=chair_entry,
+            ranking_member=ranking_entry,
+            majority_members=majority_members,
+            minority_members=minority_members,
+            active_legislative_priorities=priorities,
+            total_members_count=len(majority_members) + len(minority_members),
+        )
+
     if not matched_key:
-        # Fallback generic standing committee structure
         title = committee_query.strip()
-        if not title.startswith("House") and not title.startswith("Senate") and not "Caucus" in title:
+        if not title.startswith(("House", "Senate", "Joint")) and "Caucus" not in title:
             title = f"House Committee on {title}"
-            
         data = {
             "code": "HSXX",
             "name": title,
-            "chamber": "Senate" if "Senate" in title else "House",
+            "chamber": "Senate" if "Senate" in title else ("Joint" if "Joint" in title else "House"),
             "type": "Standing Committee" if "Caucus" not in title else "Congressional Caucus",
             "jurisdiction": f"Conducts legislative formulation, oversight hearings, and statutory authorization markups related to {title.replace('House Committee on', '').replace('Senate Committee on', '').strip()} policy initiatives.",
             "agencies": ["Relevant Federal Executive Departments", "Subordinate Bureau Agencies"],
             "chair_bioguide": None,
-            "chair_name": "Committee Leadership Chair",
+            "chair_name": None,
             "ranking_bioguide": None,
-            "ranking_name": "Ranking Member",
+            "ranking_name": None,
             "subcommittees": [
                 {"name": "Subcommittee on General Oversight and Operations", "focus_area": "Statutory execution reviews and federal budget efficiency."},
                 {"name": "Subcommittee on Policy Strategy and Innovation", "focus_area": "Emerging legislative priorities and stakeholder hearings."}
@@ -421,35 +519,32 @@ def get_committee_dossier(committee_query: str) -> CommitteeDossier:
     else:
         data = COMMITTEE_DATABASE[matched_key]
 
-    # Build member roster from all preloaded members
     all_members = load_all_congress_members()
     majority_members = []
     minority_members = []
-    
     chair_entry = None
     ranking_entry = None
-    
+
     for m in all_members:
         bio = m.get("bio", {})
         affs = m.get("affiliations", {})
+        if data["chamber"] in ("House", "Senate") and bio.get("chamber") != data["chamber"]:
+            continue
+
         all_aff_strings = [a.lower() for a in affs.get("committees", []) + affs.get("caucuses", []) + affs.get("subcommittees", [])]
-        
-        # Check if member belongs to this committee/caucus
         is_member = False
         target_name_lower = data["name"].lower()
         if any(target_name_lower in a or a in target_name_lower for a in all_aff_strings):
             is_member = True
         else:
-            # Check key word
-            keywords = [w for w in data["name"].lower().split() if len(w) > 4 and w not in ["house", "senate", "committee", "caucus"]]
-            if any(all(kw in a for kw in keywords[:2]) for a in all_aff_strings):
+            keywords = [w for w in target_name_lower.split() if len(w) > 4 and w not in ["house", "senate", "committee", "caucus"]]
+            if keywords and any(all(kw in a for kw in keywords[:2]) for a in all_aff_strings):
                 is_member = True
-                
-        # Also include specific known key members for high-profile committees
+
         bid = bio.get("bioguide_id")
         if bid == data.get("chair_bioguide") or bid == data.get("ranking_bioguide"):
             is_member = True
-            
+
         if is_member:
             role = "Member"
             if bid == data.get("chair_bioguide"):
@@ -458,7 +553,7 @@ def get_committee_dossier(committee_query: str) -> CommitteeDossier:
                 role = "Ranking Member"
             elif "Vice" in (bio.get("leadership_role") or ""):
                 role = bio.get("leadership_role") or "Vice Chair"
-                
+
             entry = CommitteeMemberEntry(
                 bioguide_id=bio.get("bioguide_id"),
                 full_name=bio.get("full_name"),
@@ -470,45 +565,23 @@ def get_committee_dossier(committee_query: str) -> CommitteeDossier:
                 image_url=bio.get("image_url"),
                 subcommittees=affs.get("subcommittees", [])[:2]
             )
-            
             if role == "Chair":
                 chair_entry = entry
             elif role == "Ranking Member":
                 ranking_entry = entry
-                
+
             if bio.get("party") == "Republican":
                 majority_members.append(entry)
             else:
                 minority_members.append(entry)
 
-    # Ensure chair and ranking member exist if not populated from current subset
-    if not chair_entry and data.get("chair_name"):
-        chair_entry = CommitteeMemberEntry(
-            bioguide_id=data.get("chair_bioguide") or "LEAD01",
-            full_name=data["chair_name"],
-            party="Republican" if data["chamber"] == "House" else "Democrat",
-            state="US",
-            district=None,
-            chamber=data["chamber"],
-            role="Chair",
-            image_url=f"https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/original/{data.get('chair_bioguide', 'O000172')}.jpg"
-        )
-        if chair_entry.party == "Republican" and not any(m.full_name == chair_entry.full_name for m in majority_members):
-            majority_members.insert(0, chair_entry)
-            
-    if not ranking_entry and data.get("ranking_name"):
-        ranking_entry = CommitteeMemberEntry(
-            bioguide_id=data.get("ranking_bioguide") or "LEAD02",
-            full_name=data["ranking_name"],
-            party="Democrat" if data["chamber"] == "House" else "Republican",
-            state="US",
-            district=None,
-            chamber=data["chamber"],
-            role="Ranking Member",
-            image_url=f"https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/original/{data.get('ranking_bioguide', 'J000289')}.jpg"
-        )
-        if ranking_entry.party == "Democrat" and not any(m.full_name == ranking_entry.full_name for m in minority_members):
-            minority_members.insert(0, ranking_entry)
+    if data["name"] == "Congressional Progressive Caucus" and not (majority_members and not minority_members):
+        majority_members, minority_members = minority_members, majority_members
+
+    if not chair_entry and majority_members:
+        chair_entry = majority_members[0].model_copy(update={"role": "Senior Majority Member"})
+    if not ranking_entry and minority_members and data["type"] == "Standing Committee":
+        ranking_entry = minority_members[0].model_copy(update={"role": "Senior Minority Member"})
 
     subcomms = [
         CommitteeSubcommitteeDetail(
@@ -518,8 +591,6 @@ def get_committee_dossier(committee_query: str) -> CommitteeDossier:
             focus_area=s["focus_area"]
         ) for s in data.get("subcommittees", [])
     ]
-
-    total_count = len(majority_members) + len(minority_members)
 
     return CommitteeDossier(
         committee_code=data["code"],
@@ -534,5 +605,5 @@ def get_committee_dossier(committee_query: str) -> CommitteeDossier:
         majority_members=majority_members,
         minority_members=minority_members,
         active_legislative_priorities=data["active_priorities"],
-        total_members_count=total_count
+        total_members_count=len(majority_members) + len(minority_members)
     )

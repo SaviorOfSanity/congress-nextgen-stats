@@ -1,6 +1,6 @@
 # Congress Civic Analytics: Legislative Performance & Lawmaker Dossiers 🏛️📊
 
-An open, automated data pipeline, nonpartisan legislative intelligence engine, and interactive civic analytics platform profiling all 535 voting members of the United States Congress—featuring automated voting categorization, Census ACS district demographic correlation, 5-pillar effectiveness ratings, committee dossiers, campaign finance transparency, and plain-English bill breakdowns.
+An open, automated data pipeline, nonpartisan legislative intelligence engine, and interactive civic analytics platform profiling all 539 voting members and delegates of the 119th United States Congress—featuring live Voteview roll calls and DW-NOMINATE spatial ideology, official 119th committees and subcommittees, U.S. Census Geocoder street-level district lookup, OpenFEC campaign filings, House Clerk STOCK Act disclosure indexing, and plain-English bill breakdowns.
 
 ---
 
@@ -24,10 +24,11 @@ An open, automated data pipeline, nonpartisan legislative intelligence engine, a
    - Interactive drill-down into Economy & Taxation, Healthcare, Tech & AI Privacy, Energy, Border Security, Defense, Judiciary, and more.
    - Includes **plain-English bill summaries**, **key statutory provisions**, roll call outcomes, and district/sector impacts.
 
-5. **Campaign Finance & Special Interest Profiler**:
-   - Ingests FEC Form 3/3P electronic filings and categorizes Grassroots Micro-Donations (<$200) vs Large Individual Contributions vs Corporate/Union PAC dependency.
-   - **Constituent Fidelity Index vs PAC Sway Index**: Highlights when a lawmaker sides with corporate donors over local district priorities.
-   - **STOCK Act Ethics Disclosures**: Periodic Transaction Reports (PTRs) cross-referenced against assigned committee jurisdictions to identify potential conflicts of interest.
+5. **Campaign Finance, Geography & Special Interest Profiler**:
+   - Ingests OpenFEC filings (`candidate/totals`, `schedule_a/by_state/by_candidate`, and `schedule_e`) for Grassroots Micro-Donations (<$200), In-State vs. Out-of-State fundraising splits, and Super PAC outside spending.
+   - **Constituent Fidelity vs. Earmark-Donor Crosswalk**: Highlights donor sector alignment vs. local district priorities and maps appropriations earmark categories against top contributing industries and committee oversight.
+   - **Line-Item House Clerk PTR PDF Parser & STOCK Act Timing Audit**: Parses public House Clerk Periodic Transaction Report (PTR) PDFs via `pypdf`, detects late disclosures (>45-day statutory window), and cross-references equities against assigned committee jurisdictions (Senate eFD remains linked via its interactive portal).
+   - **Contested vs. Routine Absence & Floor Amendment Checks**: Splits missed Voteview roll calls into party-divided floor votes vs. routine motions and tracks Congress.gov v3 bill sponsorships alongside Voteview amendment participation.
 
 6. **Automated Weekly Updates & Real-Time Sync**:
    - Background daemon automatically updates roll calls, committee rosters, and Census tables every **Saturday at 02:00 AM UTC**.
@@ -102,7 +103,9 @@ congress-civic-analytics/
 │   │   ├── congress_api.py       # Member bios, 12-category bill archive, roll calls
 │   │   ├── committees_data.py    # Committee jurisdictions, leadership, and rosters
 │   │   ├── census_api.py         # U.S. Census ACS district demographic mapper
-│   │   ├── fec_api.py            # FEC receipts, PAC vs grassroots funding
+│   │   ├── fec_api.py            # FEC receipts, Schedule A geography & PACs
+│   │   ├── ptr_parser.py         # House Clerk PTR PDF parser & 45-day timing check
+│   │   ├── live_sync.py          # Voteview, committee & House FD weekly cache sync
 │   │   └── vote_classifier.py    # Policy categorization engine (12 verticals)
 │   ├── analytics/
 │   │   ├── scouting_model.py     # 5-pillar rating engine, score breakdowns & comps
@@ -126,11 +129,24 @@ congress-civic-analytics/
 
 ## 📜 Nonpartisan Data Sources & Citations
 
-- **Official Legislative Records**: [Congress.gov](https://api.congress.gov) & Office of the Clerk of the U.S. House / Secretary of the Senate.
-- **District Socioeconomic Demographics**: [U.S. Census Bureau American Community Survey (ACS 5-Year Data)](https://www.census.gov/programs-surveys/acs).
-- **Campaign Finance & Contributions**: [Federal Election Commission (FEC)](https://www.fec.gov/data).
-- **Financial & Equities Disclosures**: [House Committee on Ethics](https://disclosures-clerk.house.gov) & [Senate Select Committee on Ethics](https://efdsearch.senate.gov).
-- **Ideological Spatial Scaling**: [Voteview / Poole & Rosenthal DW-NOMINATE](https://voteview.com).
+- **Official Legislative & Roll Call Records**: [Voteview / Poole & Rosenthal DW-NOMINATE](https://voteview.com), [unitedstates/congress-legislators](https://github.com/unitedstates/congress-legislators), & [Congress.gov API](https://api.congress.gov).
+- **District Geocoding & Socioeconomic Demographics**: [U.S. Census Bureau Geocoder](https://geocoding.geo.census.gov) & [American Community Survey (ACS 5-Year Data)](https://www.census.gov/programs-surveys/acs).
+- **Campaign Finance & Super PAC Contributions**: [Federal Election Commission (OpenFEC)](https://www.fec.gov/data).
+- **Financial & STOCK Act Disclosures**: [Office of the Clerk, U.S. House](https://disclosures-clerk.house.gov) & [Senate Ethics](https://efdsearch.senate.gov).
+
+---
+
+## 🔒 Environment Variables & Public Deployment (Cloudflare Tunnel)
+
+Copy `.env.example` to `.env` before deploying externally:
+
+```bash
+cp .env.example .env
+```
+
+- Set `ADMIN_API_KEY` to a strong secret so `POST /api/admin/sync` and `POST /api/video/generate` require `X-Admin-Key` when accessed over a tunnel/proxy (or put those routes behind Cloudflare Zero Trust Access).
+- Set `ALLOWED_ORIGINS` to your public hostname (for example `https://congress.yourdomain.com`).
+- Optional keys (`CONGRESS_API_KEY`, `FEC_API_KEY`, `CENSUS_API_KEY`) unlock higher-rate live Congress.gov bill sponsorship, OpenFEC cycle totals, and district-level Census ACS queries.
 
 ---
 

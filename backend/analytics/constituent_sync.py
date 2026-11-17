@@ -21,82 +21,98 @@ def calculate_constituent_alignment(
     """
     Calculate policy-by-policy alignment scores and identify top synergy / friction zones.
     """
+    if voting.total_votes == 0:
+        return ConstituentAlignment(
+            overall_sync_score=0.0,
+            category_alignments={},
+            top_alignment_areas=[],
+            top_divergence_areas=[],
+            scouting_takeaway=f"Not in office during the selected session ({voting.era_label})."
+        )
+
     category_alignments: Dict[str, float] = {}
     
     # 1. Defense & National Security alignment
-    vet_factor = min(1.0, demographics.veteran_pct / 8.0)
+    vet_factor = min(1.0, demographics.veteran_pct / 9.0)
     has_defense_ind = any("defense" in k.lower() or "military" in k.lower() or "aerospace" in k.lower() 
                           for k in demographics.top_employment_sectors.keys())
-    defense_priority = (vet_factor * 0.5) + (0.5 if has_defense_ind else 0.2)
+    defense_priority = min(0.95, 0.30 + (vet_factor * 0.35) + (0.30 if has_defense_ind else 0.0))
     def_vote = voting.category_breakdown.get("Defense & National Security")
     def_support = (def_vote.support_pct / 100.0) if def_vote else 0.7
-    category_alignments["Defense & National Security"] = round(100.0 - abs(defense_priority - def_support) * 60, 1)
+    category_alignments["Defense & National Security"] = round(100.0 - abs(defense_priority - def_support) * 55, 1)
 
     # 2. Agriculture & Rural Development alignment
     rural_factor = demographics.rural_pct / 100.0
-    has_ag_ind = any("agri" in k.lower() or "farm" in k.lower() for k in demographics.top_employment_sectors.keys())
-    ag_priority = (rural_factor * 0.6) + (0.4 if has_ag_ind else 0.1)
+    has_ag_ind = any("agri" in k.lower() or "farm" in k.lower() or "dairy" in k.lower() or "cattle" in k.lower()
+                     for k in demographics.top_employment_sectors.keys())
+    ag_priority = min(0.95, 0.40 + (rural_factor * 0.30) + (0.25 if has_ag_ind else 0.0))
     ag_vote = voting.category_breakdown.get("Agriculture & Rural Development")
-    ag_support = (ag_vote.support_pct / 100.0) if ag_vote else 0.6
+    ag_support = (ag_vote.support_pct / 100.0) if ag_vote else 0.7
     category_alignments["Agriculture & Rural Development"] = round(100.0 - abs(ag_priority - ag_support) * 50, 1)
 
     # 3. Economy & Taxation (and Social Safety Net / SNAP)
     snap_factor = min(1.5, demographics.snap_assistance_pct / 12.0)
-    poverty_ratio = min(1.0, demographics.poverty_rate_pct / 18.0)
     econ_vote = voting.category_breakdown.get("Economy & Taxation")
-    econ_support = (econ_vote.support_pct / 100.0) if econ_vote else 0.65
+    econ_support = (econ_vote.support_pct / 100.0) if econ_vote else 0.70
     if snap_factor > 1.2:
-        # High assistance district: higher demand for household relief and tax credits
-        category_alignments["Economy & Taxation"] = round(85.0 + (12.0 if econ_support > 0.6 else -12.0), 1)
+        category_alignments["Economy & Taxation"] = round(84.0 + (11.0 if econ_support > 0.6 else -10.0), 1)
     else:
-        category_alignments["Economy & Taxation"] = round(85.0 + (10.0 if econ_support > 0.5 else -10.0), 1)
+        category_alignments["Economy & Taxation"] = round(84.0 + (9.0 if econ_support > 0.5 else -9.0), 1)
 
     # 4. Healthcare & Medicare (and Medicaid Enrollment / Uninsured)
     health_vote = voting.category_breakdown.get("Healthcare & Medicare")
     health_support = (health_vote.support_pct / 100.0) if health_vote else 0.6
-    medicaid_factor = min(1.5, demographics.medicaid_enrolled_pct / 20.0)
-    uninsured_factor = min(1.5, demographics.uninsured_rate_pct / 8.0)
-    health_need = 0.4 + (medicaid_factor * 0.3) + (uninsured_factor * 0.3)
-    category_alignments["Healthcare & Medicare"] = round(100.0 - abs(health_need - health_support) * 50, 1)
+    medicaid_factor = min(1.2, demographics.medicaid_enrolled_pct / 24.0)
+    uninsured_factor = min(1.2, demographics.uninsured_rate_pct / 10.0)
+    health_need = min(0.90, 0.35 + (medicaid_factor * 0.25) + (uninsured_factor * 0.25))
+    category_alignments["Healthcare & Medicare"] = round(100.0 - abs(health_need - health_support) * 45, 1)
 
-    # 5. Immigration & Border Security (Factoring Foreign-Born / Immigrant Ratio)
+    # 5. Immigration & Border Security (support_pct = border enforcement/wall stance)
     imm_vote = voting.category_breakdown.get("Immigration & Border Security")
     imm_support = (imm_vote.support_pct / 100.0) if imm_vote else 0.5
     foreign_born_ratio = demographics.foreign_born_pct / 100.0
-    if foreign_born_ratio > 0.25:
-        # High immigrant population: pro-reform / pathway to legal status alignment
-        imm_align = 92.0 if imm_support > 0.6 else 65.0
-    elif foreign_born_ratio < 0.06:
-        # Low foreign-born / rural border focus: enforcement alignment
-        imm_align = 90.0 if imm_support > 0.5 else 72.0
+    if foreign_born_ratio > 0.20:
+        # High immigrant population: favors legal status / pathway & integration over strict enforcement-only
+        imm_align = 92.0 if (1.0 - imm_support) > 0.55 else 68.0
+    elif foreign_born_ratio < 0.08:
+        # Low foreign-born / border-enforcement focus
+        imm_align = 91.0 if imm_support > 0.55 else 71.0
     else:
-        imm_align = 82.0
+        imm_align = 83.0
     category_alignments["Immigration & Border Security"] = imm_align
 
     # 6. Technology & AI / Privacy
-    has_tech_ind = any("tech" in k.lower() or "software" in k.lower() or "telecom" in k.lower() 
+    has_tech_ind = any("tech" in k.lower() or "software" in k.lower() or "telecom" in k.lower() or "semi" in k.lower()
                        for k in demographics.top_employment_sectors.keys())
-    tech_factor = (demographics.college_educated_pct / 100.0 * 0.5) + (0.5 if has_tech_ind else 0.2)
+    tech_factor = min(0.92, 0.45 + (demographics.college_educated_pct / 100.0 * 0.25) + (0.22 if has_tech_ind else 0.0))
     tech_vote = voting.category_breakdown.get("Technology & AI / Privacy")
-    tech_support = (tech_vote.support_pct / 100.0) if tech_vote else 0.75
+    tech_support = (tech_vote.support_pct / 100.0) if tech_vote else 0.72
     category_alignments["Technology & AI / Privacy"] = round(100.0 - abs(tech_factor - tech_support) * 45, 1)
 
-    # 7. Energy & Environment
-    has_energy_ind = any("energy" in k.lower() or "oil" in k.lower() or "gas" in k.lower() or "mining" in k.lower() 
+    # 7. Energy & Environment (support_pct = Clean Energy & Environmental Transition)
+    has_energy_ind = any("energy" in k.lower() or "oil" in k.lower() or "gas" in k.lower() or "mining" in k.lower() or "coal" in k.lower()
                          for k in demographics.top_employment_sectors.keys())
     energy_vote = voting.category_breakdown.get("Energy & Environment")
     energy_support = (energy_vote.support_pct / 100.0) if energy_vote else 0.5
     if has_energy_ind:
-        energy_align = 90.0 if energy_support > 0.6 else 62.0
+        # Energy extraction economies align with opposing strict fossil restrictions / backing traditional permitting
+        pro_traditional_energy = 1.0 - energy_support
+        energy_align = 90.0 if pro_traditional_energy > 0.55 else 66.0
     else:
-        energy_align = 84.0 if energy_support > 0.4 else 75.0
+        energy_align = 88.0 if energy_support > 0.55 else 72.0
     category_alignments["Energy & Environment"] = energy_align
 
-    # 8. Infrastructure & Transportation
-    category_alignments["Infrastructure & Transportation"] = round(min(98.0, 75.0 + (demographics.urban_pct * 0.2)), 1)
-    
-    # 9. Education & Labor
-    category_alignments["Education & Labor"] = round(80.0 + (demographics.college_educated_pct * 0.3), 1)
+    # 8. Infrastructure & Transportation (actual vote-correlated!)
+    infra_vote = voting.category_breakdown.get("Infrastructure & Transportation")
+    infra_support = (infra_vote.support_pct / 100.0) if infra_vote else 0.74
+    infra_need = min(0.92, 0.55 + (demographics.urban_pct / 100.0 * 0.25) + (demographics.rural_pct / 100.0 * 0.15))
+    category_alignments["Infrastructure & Transportation"] = round(100.0 - abs(infra_need - infra_support) * 45, 1)
+
+    # 9. Education & Labor (actual vote-correlated!)
+    edu_vote = voting.category_breakdown.get("Education & Labor")
+    edu_support = (edu_vote.support_pct / 100.0) if edu_vote else 0.65
+    edu_priority = min(0.90, 0.45 + (demographics.college_educated_pct / 100.0 * 0.35))
+    category_alignments["Education & Labor"] = round(100.0 - abs(edu_priority - edu_support) * 45, 1)
 
     for k in category_alignments:
         category_alignments[k] = max(45.0, min(99.0, category_alignments[k]))
@@ -142,7 +158,8 @@ def calculate_donor_vs_constituent_analysis(
     has_energy_ind = any("energy" in k.lower() or "oil" in k.lower() or "coal" in k.lower() 
                          for k in demographics.top_employment_sectors.keys())
     energy_vote = voting.category_breakdown.get("Energy & Environment")
-    energy_supp = energy_vote.support_pct if energy_vote else 50.0
+    energy_clean_supp = energy_vote.support_pct if (energy_vote and voting.total_votes > 0) else 50.0
+    pro_fossil_supp = round(max(0.0, 100.0 - energy_clean_supp), 1)
 
     if energy_donor_amt > 1000000.0:
         donor_stake = f"High (${energy_donor_amt/1000000:.1f}M+ PAC)"
@@ -154,12 +171,12 @@ def calculate_donor_vs_constituent_analysis(
         else:
             dist_prio = "Adverse / Climate Vulnerable"
             conf = True
-            if energy_supp > 65.0:
+            if pro_fossil_supp > 55.0:
                 verdict = "Sided with Donors (High Conflict)"
-                dtl = f"Voted {energy_supp:.0f}% for fossil fuel subsidies despite district non-energy profile."
+                dtl = f"Voted {pro_fossil_supp:.0f}% against clean energy transition / for fossil permitting despite district non-energy profile."
             else:
                 verdict = "Sided with District (Resisted Donors)"
-                dtl = f"Voted with district priorities despite ${energy_donor_amt/1000000:.1f}M from energy PACs."
+                dtl = f"Voted with district clean-energy priorities despite ${energy_donor_amt/1000000:.1f}M from energy PACs."
     else:
         donor_stake = "Minimal / No Oil PACs"
         dist_prio = "Clean Energy / Climate Priority" if not has_energy_ind else "Pro-Energy"
@@ -172,7 +189,7 @@ def calculate_donor_vs_constituent_analysis(
         donor_funding_amount=energy_donor_amt,
         donor_stake_level=donor_stake,
         district_priority_level=dist_prio,
-        member_voting_record=f"{energy_supp:.0f}% Pro-Industry Support",
+        member_voting_record=f"{energy_clean_supp:.0f}% Clean Energy / {pro_fossil_supp:.0f}% Fossil",
         alignment_verdict=verdict,
         conflict_detected=conf,
         details=dtl
@@ -336,6 +353,7 @@ def build_district_deep_dive_dossier(
     every Census ACS metric directly to the lawmaker's roll call voting record.
     """
     correlations = []
+    caucus_dem = bio.party == "Democrat" or (bio.party == "Independent" and voting.dw_nominate_score <= 0.05)
     
     # 1. SNAP / Food Assistance
     snap_val = demographics.snap_assistance_pct
@@ -344,7 +362,7 @@ def build_district_deep_dive_dossier(
     
     if snap_val > 15.0:
         snap_status = "SIGNIFICANTLY_ABOVE_NATIONAL"
-        if bio.party == "Democrat":
+        if caucus_dem:
             stance = "ACTIVE_EXPANSION"
             impact = f"Home district has elevated food assistance reliance ({snap_val:.1f}% vs 12.1% US avg). Lawmaker consistently votes to protect Farm Bill nutrition allocations, expand emergency SNAP benefits, and reject stringent work-requirement cutoffs."
         else:
@@ -373,7 +391,7 @@ def build_district_deep_dive_dossier(
     
     if fb_val > 25.0:
         fb_status = "HIGH_IMMIGRANT_CONCENTRATION"
-        if bio.party == "Democrat":
+        if caucus_dem:
             stance = "PATHWAYS_AND_LEGAL_PROTECTIONS"
             impact = f"Representing a major immigrant hub ({fb_val:.1f}% foreign-born population). Voting record strongly champions legal visa access, DACA protections, asylum hearing resources, and opposition to broad border detention expansions."
         else:
@@ -403,7 +421,7 @@ def build_district_deep_dive_dossier(
     
     if med_val > 22.0 or unins_val > 10.0:
         health_status = "CRITICAL_HEALTH_SAFETY_NET"
-        if bio.party == "Democrat":
+        if caucus_dem:
             stance = "AFFORDABLE_CARE_SUBSIDIES"
             impact = f"Over {med_val:.1f}% of constituents depend on Medicaid/CHIP. Voting record aggressively defends ACA premium tax credits, expands Medicare prescription drug negotiation powers, and backs $35 insulin caps."
         else:

@@ -4,10 +4,27 @@ Provides demographic, economic, social safety net (SNAP/Medicaid), immigration, 
 """
 import json
 import logging
-from typing import Dict, Optional
+import urllib.parse
+import urllib.request
+from typing import Any, Dict, Optional
+from backend.config import CACHE_DIR, CENSUS_API_KEY
 from backend.models import ConstituentDemographics
 
 logger = logging.getLogger(__name__)
+
+STATE_FIPS_TO_ABBR: Dict[str, str] = {
+    "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA", "08": "CO", "09": "CT",
+    "10": "DE", "11": "DC", "12": "FL", "13": "GA", "15": "HI", "16": "ID", "17": "IL",
+    "18": "IN", "19": "IA", "20": "KS", "21": "KY", "22": "LA", "23": "ME", "24": "MD",
+    "25": "MA", "26": "MI", "27": "MN", "28": "MS", "29": "MO", "30": "MT", "31": "NE",
+    "32": "NV", "33": "NH", "34": "NJ", "35": "NM", "36": "NY", "37": "NC", "38": "ND",
+    "39": "OH", "40": "OK", "41": "OR", "42": "PA", "44": "RI", "45": "SC", "46": "SD",
+    "47": "TN", "48": "TX", "49": "UT", "50": "VT", "51": "VA", "53": "WA", "54": "WV",
+    "55": "WI", "56": "WY", "60": "AS", "66": "GU", "69": "MP", "72": "PR", "78": "VI",
+}
+STATE_ABBR_TO_FIPS: Dict[str, str] = {v: k for k, v in STATE_FIPS_TO_ABBR.items()}
+_CENSUS_ACS_CACHE_PATH = CACHE_DIR / "census_acs_cache.json"
+_CENSUS_ACS_CACHE: Optional[Dict[str, Any]] = None
 
 # State-level baseline profiles across all 50 states + territories
 STATE_BASELINES: Dict[str, Dict] = {
@@ -60,8 +77,177 @@ STATE_BASELINES: Dict[str, Dict] = {
     "WA": {"income": 90325, "poverty": 9.9, "snap": 11.5, "medicaid": 27.5, "foreign_born": 15.2, "uninsured": 5.8, "urban": 83.4, "college": 37.3, "veteran": 7.9, "pvi": "D+8", "top_sectors": {"Cloud/Tech": 18.5, "Aerospace/Boeing": 12.8, "Maritime": 6.5, "Ag": 6.2}},
     "WV": {"income": 55216, "poverty": 16.8, "snap": 16.8, "medicaid": 34.5, "foreign_born": 1.8, "uninsured": 5.8, "urban": 48.7, "college": 21.5, "veteran": 8.8, "pvi": "R+22", "top_sectors": {"Energy/Coal/Gas": 15.2, "Healthcare": 16.8, "Manufacturing": 9.5, "Tourism": 7.2}},
     "WI": {"income": 72458, "poverty": 10.8, "snap": 10.5, "medicaid": 22.5, "foreign_born": 5.1, "uninsured": 5.2, "urban": 70.2, "college": 31.8, "veteran": 6.5, "pvi": "R+2", "top_sectors": {"Manufacturing": 17.5, "Dairy/Ag": 12.8, "Healthcare": 13.8, "Paper/Forestry": 6.8}},
-    "WY": {"income": 71052, "poverty": 10.9, "snap": 5.9, "medicaid": 14.5, "foreign_born": 3.5, "uninsured": 11.5, "urban": 64.8, "college": 29.5, "veteran": 9.5, "pvi": "R+25", "top_sectors": {"Mining/Oil/Coal": 21.5, "Tourism/Parks": 13.2, "Agriculture": 10.5, "Healthcare": 10.2}}
+    "WY": {"income": 71052, "poverty": 10.9, "snap": 5.9, "medicaid": 14.5, "foreign_born": 3.5, "uninsured": 11.5, "urban": 64.8, "college": 29.5, "veteran": 9.5, "pvi": "R+25", "top_sectors": {"Mining/Oil/Coal": 21.5, "Tourism/Parks": 13.2, "Agriculture": 10.5, "Healthcare": 10.2}},
+    # Federal District & U.S. Territories
+    "DC": {"income": 101722, "poverty": 14.2, "snap": 18.5, "medicaid": 31.0, "foreign_born": 13.8, "uninsured": 3.4, "urban": 100.0, "college": 63.0, "veteran": 4.2, "pvi": "D+43", "top_sectors": {"Federal Government": 26.5, "Professional Services": 18.2, "Healthcare": 12.5, "Higher Education": 10.4}},
+    "PR": {"income": 25621, "poverty": 40.5, "snap": 42.0, "medicaid": 46.5, "foreign_born": 2.9, "uninsured": 6.2, "urban": 92.0, "college": 28.5, "veteran": 3.1, "pvi": "EVEN", "top_sectors": {"Pharma/Medical Mfg": 14.8, "Tourism/Hospitality": 12.2, "Healthcare": 13.5, "Public Admin": 15.0}},
+    "VI": {"income": 40408, "poverty": 22.8, "snap": 24.0, "medicaid": 28.0, "foreign_born": 35.0, "uninsured": 22.0, "urban": 94.0, "college": 21.0, "veteran": 4.5, "pvi": "D+15", "top_sectors": {"Tourism/Hospitality": 28.0, "Public Admin": 20.0, "Maritime/Refining": 10.5, "Retail": 14.0}},
+    "GU": {"income": 58289, "poverty": 20.2, "snap": 26.0, "medicaid": 25.0, "foreign_born": 32.0, "uninsured": 18.0, "urban": 93.0, "college": 22.5, "veteran": 8.9, "pvi": "EVEN", "top_sectors": {"Defense/Military Base": 24.0, "Tourism": 22.0, "Construction": 11.5, "Public Admin": 16.5}},
+    "AS": {"income": 28352, "poverty": 54.0, "snap": 38.0, "medicaid": 45.0, "foreign_born": 34.0, "uninsured": 19.0, "urban": 87.0, "college": 14.0, "veteran": 6.2, "pvi": "EVEN", "top_sectors": {"Tuna/Fisheries Mfg": 31.0, "Public Admin": 28.0, "Healthcare": 10.0, "Retail": 11.0}},
+    "MP": {"income": 31362, "poverty": 38.0, "snap": 35.0, "medicaid": 42.0, "foreign_born": 39.0, "uninsured": 20.0, "urban": 89.0, "college": 19.5, "veteran": 4.8, "pvi": "EVEN", "top_sectors": {"Tourism/Hospitality": 32.0, "Public Admin": 24.0, "Construction": 12.0, "Retail": 13.0}}
 }
+
+# Representative 5-digit ZIP -> Congressional District mappings
+ZIP_TO_DISTRICT_MAP: Dict[str, Dict] = {
+    "10457": {"state": "NY", "district": 14},  # Bronx/Queens NY-14
+    "11372": {"state": "NY", "district": 14},
+    "10001": {"state": "NY", "district": 12},
+    "11201": {"state": "NY", "district": 7},
+    "11216": {"state": "NY", "district": 8},   # Brooklyn NY-08
+    "94102": {"state": "CA", "district": 11},  # San Francisco CA-11
+    "95014": {"state": "CA", "district": 17},  # Silicon Valley CA-17
+    "90001": {"state": "CA", "district": 43},
+    "04401": {"state": "ME", "district": 2},   # Bangor ME-02
+    "45801": {"state": "OH", "district": 4},   # Lima OH-04
+    "70001": {"state": "LA", "district": 1},   # Metairie LA-01
+    "41011": {"state": "KY", "district": 4},   # Northern KY-04
+    "30720": {"state": "GA", "district": 14},  # Dalton GA-14
+    "20001": {"state": "DC", "district": 0},   # Washington DC
+    "00901": {"state": "PR", "district": 0},   # San Juan PR
+    "96950": {"state": "MP", "district": 0},   # Saipan MP
+    "05401": {"state": "VT", "district": 0},   # Burlington VT At-Large
+    "78701": {"state": "TX", "district": 37},
+    "60601": {"state": "IL", "district": 7},
+    "33101": {"state": "FL", "district": 24},
+    "02108": {"state": "MA", "district": 8},
+    "98101": {"state": "WA", "district": 7},
+    "80202": {"state": "CO", "district": 1},
+    "85004": {"state": "AZ", "district": 3},
+}
+
+
+def resolve_zip_to_state_district(zip_code: str) -> Dict[str, Optional[int]]:
+    """Resolve a 5-digit ZIP code to (state, exact_or_estimated_district)."""
+    z = (zip_code or "").strip()
+    if z in ZIP_TO_DISTRICT_MAP:
+        entry = ZIP_TO_DISTRICT_MAP[z]
+        return {"state": entry["state"], "district": entry.get("district"), "exact_district_match": True}
+
+    if not z.isdigit() or len(z) < 3:
+        return {"state": "NY", "district": 14, "exact_district_match": False}
+
+    prefix = int(z[:3])
+    zip_num = int(z) if len(z) == 5 else prefix * 100
+
+    # Specific territory / DC prefixes
+    if zip_num == 96799:
+        st = "AS"
+    elif 96910 <= zip_num <= 96932:
+        st = "GU"
+    elif 96950 <= zip_num <= 96952:
+        st = "MP"
+    elif prefix == 5:
+        st = "NY"
+    elif 6 <= prefix <= 7 or prefix == 9:
+        st = "PR"
+    elif prefix == 8:
+        st = "VI"
+    elif 10 <= prefix <= 27:
+        st = "MA"
+    elif 28 <= prefix <= 29:
+        st = "RI"
+    elif 30 <= prefix <= 38:
+        st = "NH"
+    elif 39 <= prefix <= 49:
+        st = "ME"
+    elif 50 <= prefix <= 59:
+        st = "VT"
+    elif 60 <= prefix <= 69:
+        st = "CT"
+    elif 70 <= prefix <= 89:
+        st = "NJ"
+    elif 100 <= prefix <= 149:
+        st = "NY"
+    elif 150 <= prefix <= 196:
+        st = "PA"
+    elif 197 <= prefix <= 199:
+        st = "DE"
+    elif prefix in (200, 202, 203, 204, 205):
+        st = "DC"
+    elif prefix == 201 or (220 <= prefix <= 246):
+        st = "VA"
+    elif 206 <= prefix <= 219:
+        st = "MD"
+    elif 247 <= prefix <= 268:
+        st = "WV"
+    elif 270 <= prefix <= 289:
+        st = "NC"
+    elif 290 <= prefix <= 299:
+        st = "SC"
+    elif (300 <= prefix <= 319) or prefix in (398, 399):
+        st = "GA"
+    elif 320 <= prefix <= 349:
+        st = "FL"
+    elif 350 <= prefix <= 369:
+        st = "AL"
+    elif 370 <= prefix <= 385:
+        st = "TN"
+    elif 386 <= prefix <= 397:
+        st = "MS"
+    elif 400 <= prefix <= 427:
+        st = "KY"
+    elif 430 <= prefix <= 459:
+        st = "OH"
+    elif 460 <= prefix <= 479:
+        st = "IN"
+    elif 480 <= prefix <= 499:
+        st = "MI"
+    elif 500 <= prefix <= 528:
+        st = "IA"
+    elif 530 <= prefix <= 549:
+        st = "WI"
+    elif 550 <= prefix <= 567:
+        st = "MN"
+    elif 570 <= prefix <= 577:
+        st = "SD"
+    elif 580 <= prefix <= 588:
+        st = "ND"
+    elif 590 <= prefix <= 599:
+        st = "MT"
+    elif 600 <= prefix <= 629:
+        st = "IL"
+    elif 630 <= prefix <= 658:
+        st = "MO"
+    elif 660 <= prefix <= 679:
+        st = "KS"
+    elif 680 <= prefix <= 693:
+        st = "NE"
+    elif 700 <= prefix <= 714:
+        st = "LA"
+    elif 716 <= prefix <= 729:
+        st = "AR"
+    elif 730 <= prefix <= 749:
+        st = "OK"
+    elif (750 <= prefix <= 799) or prefix == 885:
+        st = "TX"
+    elif 800 <= prefix <= 816:
+        st = "CO"
+    elif 820 <= prefix <= 831:
+        st = "WY"
+    elif 832 <= prefix <= 838:
+        st = "ID"
+    elif 840 <= prefix <= 847:
+        st = "UT"
+    elif 850 <= prefix <= 865:
+        st = "AZ"
+    elif 870 <= prefix <= 884:
+        st = "NM"
+    elif 889 <= prefix <= 898:
+        st = "NV"
+    elif 900 <= prefix <= 961:
+        st = "CA"
+    elif 967 <= prefix <= 968:
+        st = "HI"
+    elif 970 <= prefix <= 979:
+        st = "OR"
+    elif 980 <= prefix <= 994:
+        st = "WA"
+    elif 995 <= prefix <= 999:
+        st = "AK"
+    else:
+        st = "NY"
+
+    return {"state": st, "district": None, "exact_district_match": False}
 
 # Granular Representative District Overrides for Notable Districts
 DISTRICT_PROFILES: Dict[str, Dict] = {
@@ -79,6 +265,121 @@ DISTRICT_PROFILES: Dict[str, Dict] = {
     "KY-Sen": {"income": 60183, "poverty": 16.5, "snap": 15.8, "medicaid": 33.2, "foreign_born": 4.1, "uninsured": 5.6, "disability": 17.5, "urban": 58.4, "college": 25.0, "veteran": 8.1, "pvi": "R+16", "top_sectors": {"Manufacturing/Auto": 15.8, "Logistics/UPS": 11.5, "Healthcare": 14.0, "Energy/Coal": 6.8}}
 }
 
+def geocode_address_to_district(address: str) -> Optional[Dict[str, Any]]:
+    """
+    Call the keyless U.S. Census Bureau Geocoder API (119th Congressional Districts layer)
+    to resolve a street address into its exact (state, district, matched_address).
+    """
+    addr = (address or "").strip()
+    if len(addr) < 6:
+        return None
+    params = urllib.parse.urlencode({
+        "address": addr,
+        "benchmark": "Public_AR_Current",
+        "vintage": "Current_Current",
+        "layers": "119th Congressional Districts",
+        "format": "json",
+    })
+    url = f"https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?{params}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "CongressCivicAnalytics/2.5"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        matches = payload.get("result", {}).get("addressMatches", [])
+        if not matches:
+            return None
+        top = matches[0]
+        geos = top.get("geographies", {})
+        cd_list = geos.get("119th Congressional Districts") or []
+        if not cd_list:
+            for k, v in geos.items():
+                if "Congressional Districts" in k and isinstance(v, list) and v:
+                    cd_list = v
+                    break
+        if not cd_list:
+            return None
+        cd_entry = cd_list[0]
+        state_fips = str(cd_entry.get("STATE", "")).zfill(2)
+        state_abbr = STATE_FIPS_TO_ABBR.get(state_fips)
+        cd_raw = next(
+            (str(v) for k, v in cd_entry.items() if k.startswith("CD") and k != "CDSESSN" and str(v).isdigit()),
+            None,
+        ) or cd_entry.get("CDFIPS") or cd_entry.get("BASENAME") or "0"
+        dist_num = int(cd_raw) if str(cd_raw).isdigit() else 0
+        if dist_num == 98:  # Non-voting delegate FIPS marker
+            dist_num = 0
+        if not state_abbr:
+            return None
+        return {
+            "state": state_abbr,
+            "district": dist_num,
+            "exact_district_match": True,
+            "matched_address": top.get("matchedAddress"),
+            "resolution_method": "US Census Bureau Geocoder (Exact Street District Match)",
+        }
+    except Exception as e:
+        logger.info(f"Census geocoder lookup skipped/failed for '{addr}': {e}")
+        return None
+
+
+def _get_cached_or_live_acs(state_up: str, district: Optional[int], district_code: str) -> Optional[Dict[str, Any]]:
+    """Return cached or live Census ACS 5-year socioeconomic stats when CENSUS_API_KEY is available."""
+    global _CENSUS_ACS_CACHE
+    if _CENSUS_ACS_CACHE is None:
+        if _CENSUS_ACS_CACHE_PATH.exists():
+            try:
+                _CENSUS_ACS_CACHE = json.loads(_CENSUS_ACS_CACHE_PATH.read_text(encoding="utf-8"))
+            except Exception:
+                _CENSUS_ACS_CACHE = {}
+        else:
+            _CENSUS_ACS_CACHE = {}
+
+    if district_code in _CENSUS_ACS_CACHE:
+        return _CENSUS_ACS_CACHE[district_code]
+
+    if not CENSUS_API_KEY:
+        return None
+
+    fips = STATE_ABBR_TO_FIPS.get(state_up)
+    if not fips:
+        return None
+
+    try:
+        if district is not None:
+            cd_str = "00" if district == 0 else f"{district:02d}"
+            geo = f"for=congressional%20district:{cd_str}&in=state:{fips}"
+        else:
+            geo = f"for=state:{fips}"
+        # Total pop (B01003_001E), Median HH Income (B19013_001E), Poverty count (B17001_002E / B17001_001E), SNAP (B22003_002E / B22003_001E)
+        vars_str = "NAME,B01003_001E,B19013_001E,B17001_002E,B17001_001E,B22003_002E,B22003_001E"
+        url = f"https://api.census.gov/data/2023/acs/acs5?get={vars_str}&{geo}&key={CENSUS_API_KEY}"
+        req = urllib.request.Request(url, headers={"User-Agent": "CongressCivicAnalytics/2.5"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            rows = json.loads(resp.read().decode("utf-8"))
+        if len(rows) >= 2:
+            hdr, vals = rows[0], rows[1]
+            rec = dict(zip(hdr, vals))
+            pop = int(float(rec.get("B01003_001E") or 760000))
+            inc = int(float(rec.get("B19013_001E") or 70000))
+            pov_num, pov_den = float(rec.get("B17001_002E") or 0), float(rec.get("B17001_001E") or 1)
+            snp_num, snp_den = float(rec.get("B22003_002E") or 0), float(rec.get("B22003_001E") or 1)
+            base = DISTRICT_PROFILES.get(district_code) or STATE_BASELINES.get(state_up) or {}
+            merged = dict(base)
+            merged.update({
+                "population": pop,
+                "income": inc,
+                "poverty": round((pov_num / max(1.0, pov_den)) * 100.0, 1),
+                "snap": round((snp_num / max(1.0, snp_den)) * 100.0, 1),
+                "live_census_acs": True,
+            })
+            _CENSUS_ACS_CACHE[district_code] = merged
+            _CENSUS_ACS_CACHE_PATH.write_text(json.dumps(_CENSUS_ACS_CACHE), encoding="utf-8")
+            return merged
+    except Exception as e:
+        logger.debug(f"Live Census ACS fetch skipped for {district_code}: {e}")
+    return None
+
+
 def get_district_demographics(state: str, district: Optional[int] = None) -> ConstituentDemographics:
     """
     Retrieve Census demographics, economic drivers, safety-net usage (SNAP/Medicaid),
@@ -87,7 +388,10 @@ def get_district_demographics(state: str, district: Optional[int] = None) -> Con
     state_up = state.upper() if state else "US"
     district_code = f"{state_up}-{district:02d}" if district is not None and district > 0 else f"{state_up}-At-Large" if district == 0 else f"{state_up}-Sen"
     
-    if district_code in DISTRICT_PROFILES:
+    live_data = _get_cached_or_live_acs(state_up, district, district_code)
+    if live_data:
+        data = live_data
+    elif district_code in DISTRICT_PROFILES:
         data = DISTRICT_PROFILES[district_code]
     elif state_up in STATE_BASELINES:
         data = STATE_BASELINES[state_up]
@@ -113,7 +417,7 @@ def get_district_demographics(state: str, district: Optional[int] = None) -> Con
     return ConstituentDemographics(
         district_code=district_code,
         state_name=state_up,
-        population=760000 if district is not None else 3500000,
+        population=int(data.get("population") or (760000 if district is not None else 3500000)),
         median_household_income=int(data.get("income", 74580)),
         poverty_rate_pct=float(data.get("poverty", 12.6)),
         snap_assistance_pct=float(data.get("snap", 12.5)),

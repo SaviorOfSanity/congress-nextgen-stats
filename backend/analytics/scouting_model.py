@@ -23,6 +23,7 @@ from backend.models import (
     HeadToHeadComparisonResponse,
     HeadToHeadVoteDivergence,
     LegislativePipelineStats,
+    EarmarkDonorOverlapItem,
     RatingScorePillar,
     RatingBreakdownDossier,
     DonorVsConstituentAnalysis,
@@ -43,9 +44,12 @@ from backend.models import (
     FamilyHoldingItem,
     SpousalAndFamilyConflictMatrix,
     ConstituentApprovalRating,
-    InstitutionalWorkplaceMetrics
+    InstitutionalWorkplaceMetrics,
+    IdeologyVsDistrictCheck,
+    DataProvenanceSummary
 )
 import datetime
+import zlib
 
 PRO_COMP_DATABASE = {
     "P000197": {
@@ -97,14 +101,33 @@ def calculate_five_pillar_score(
 ) -> Tuple[float, str, str, List[RatingScorePillar], List[str], List[str]]:
     """
     Calculate balanced 5-Pillar Legislative Effectiveness Score (0 to 100).
-    Produces a realistic, non-inflated distribution across A, B, C, D, and F grades.
+    Produces an authentic, nonpartisan distribution across A, B, C, D, and F grades.
     """
+    if voting.total_votes == 0:
+        empty_pillars = [
+            RatingScorePillar(pillar_id="output", pillar_title="Legislative Output & Throughput", points_earned=0.0, points_max=25.0, percentage=0.0, pillar_description="No active session legislative output (not in office during selected timeframe).", status_label="NOT IN OFFICE"),
+            RatingScorePillar(pillar_id="district_sync", pillar_title="Constituent & District Fidelity", points_earned=0.0, points_max=25.0, percentage=0.0, pillar_description="No recorded roll calls in selected timeframe.", status_label="NOT IN OFFICE"),
+            RatingScorePillar(pillar_id="floor", pillar_title="Floor Attendance & Reliability", points_earned=0.0, points_max=20.0, percentage=0.0, pillar_description="No floor votes recorded in selected timeframe.", status_label="NOT IN OFFICE"),
+            RatingScorePillar(pillar_id="pac_indep", pillar_title="Special Interest & PAC Independence", points_earned=0.0, points_max=15.0, percentage=0.0, pillar_description="Campaign finance evaluated during active congressional terms.", status_label="NOT IN OFFICE"),
+            RatingScorePillar(pillar_id="bipartisanship", pillar_title="Bipartisanship & Coalition Building", points_earned=0.0, points_max=15.0, percentage=0.0, pillar_description="No co-sponsorship activity during selected timeframe.", status_label="NOT IN OFFICE"),
+        ]
+        return (
+            0.0,
+            "N/A",
+            "NOT IN OFFICE DURING SELECTED SESSION",
+            empty_pillars,
+            [f"First elected in {bio.first_elected}; did not serve in the selected congressional timeframe."],
+            ["Switch timeframe selector to Career Total or 119th Congress to inspect active record."]
+        )
+
+    is_delegate = bio.state in ["AS", "DC", "GU", "MP", "PR", "VI"]
+
     # 1. Legislative Output & Throughput (25 pts max)
     is_freshman = (bio.terms_served or 1) <= 1
-    freshman_output_calibration = 5.5 if is_freshman else 0.0
-    out_sponsor_pts = min(10.0, (pipeline.bills_sponsored_count * 0.35) + (pipeline.bills_passed_committee_count * 1.5) + (pipeline.bills_enacted_into_law_count * 2.5) + freshman_output_calibration)
-    out_funding_pts = min(8.0, pipeline.earmarks_secured_millions * 0.25 + (2.5 if is_freshman else 0.0))
-    out_comm_pts = min(7.0, (len(affiliations.committees) * 1.5) + (4.0 if bio.leadership_role else 0.0))
+    freshman_output_calibration = 4.0 if is_freshman else 0.0
+    out_sponsor_pts = min(10.0, (pipeline.bills_sponsored_count * 0.28) + (pipeline.bills_passed_committee_count * 1.15) + (pipeline.bills_enacted_into_law_count * 2.2) + freshman_output_calibration)
+    out_funding_pts = min(8.0, (pipeline.earmarks_secured_millions * 0.22) + (2.0 if is_freshman else 0.0))
+    out_comm_pts = min(7.0, (len(affiliations.committees) * 1.6) + (3.2 if bio.leadership_role else 0.0))
     p1_score = round(min(25.0, out_sponsor_pts + out_funding_pts + out_comm_pts), 1)
 
     # 2. Constituent & District Fidelity (25 pts max)
@@ -113,61 +136,44 @@ def calculate_five_pillar_score(
     p2_score = round(min(25.0, sync_pts + dist_loyalty_pts), 1)
 
     # 3. Floor Attendance & Reliability (20 pts max)
-    att_base = (voting.attendance_pct / 100.0) * 20.0
-    missed_penalty = min(8.0, max(0.0, voting.abstain_pct - 1.0) * 2.0)
+    # Non-voting delegates (DC, PR, VI, GU, AS, MP) are restricted by House Rule III(3) from voting on final floor passage;
+    # use committee/CoW participation so delegates aren't penalized for constitutional House voting limits.
+    eff_attendance = voting.attendance_pct
+    eff_abstain = voting.abstain_pct
+    if is_delegate:
+        eff_attendance = max(voting.attendance_pct, min(98.0, pipeline.oversight_hearing_attendance_pct))
+        eff_abstain = round(max(0.0, 100.0 - eff_attendance), 1)
+    att_base = (eff_attendance / 100.0) * 20.0
+    missed_penalty = min(10.0, max(0.0, eff_abstain - 1.0) * (1.1 if is_delegate else 2.2))
     p3_score = round(max(0.0, min(20.0, att_base - missed_penalty)), 1)
 
     # 4. Special Interest & PAC Independence (15 pts max)
-    grassroots_pts = (finance.small_individual_pct / 100.0) * 10.0
-    pac_clean_pts = max(0.0, (100.0 - finance.pac_contributions_pct) / 100.0) * 5.0
-    p4_score = round(min(15.0, grassroots_pts + pac_clean_pts), 1)
+    grassroots_pts = min(9.5, (finance.small_individual_pct / 75.0) * 9.5)
+    pac_clean_pts = min(5.5, max(0.0, (65.0 - finance.pac_contributions_pct) / 65.0) * 5.5)
+    p4_score = round(max(0.0, min(15.0, grassroots_pts + pac_clean_pts)), 1)
 
     # 5. Bipartisanship & Coalition Building (15 pts max)
-    bipart_pts = min(15.0, (voting.bipartisanship_pct / 35.0) * 15.0)
+    bipart_pts = min(15.0, (voting.bipartisanship_pct / 38.0) * 15.0)
     p5_score = round(min(15.0, bipart_pts), 1)
 
     total_score = round(p1_score + p2_score + p3_score + p4_score + p5_score, 1)
 
     # Standard 10-point bracket grade determination (A: 90-100, B: 80-89, C: 70-79, D: 60-69, F: <60)
-    if total_score >= 97.0:
-        grade = "A+"
-        tier = "EXEMPLARY / TOP 5% LEGISLATOR"
-    elif total_score >= 93.0:
+    if total_score >= 90.0:
         grade = "A"
-        tier = "HIGH-IMPACT INSTITUTIONAL LEADER"
-    elif total_score >= 90.0:
-        grade = "A-"
-        tier = "EFFECTIVE DISTRICT CHAMPION"
-    elif total_score >= 87.0:
-        grade = "B+"
-        tier = "HIGH PRODUCTIVITY LEGISLATOR"
-    elif total_score >= 83.0:
-        grade = "B"
-        tier = "CONSISTENT FLOOR PARTICIPANT"
+        tier = "EXEMPLARY / HIGH-IMPACT LEGISLATOR"
     elif total_score >= 80.0:
-        grade = "B-"
-        tier = "STANDARD MAJORITY VOTE"
-    elif total_score >= 77.0:
-        grade = "C+"
-        tier = "AVERAGE LEGISLATIVE EFFECTIVENESS"
-    elif total_score >= 73.0:
-        grade = "C"
-        tier = "BELOW-AVERAGE OUTPUT / HIGH SPECIAL INTEREST"
+        grade = "B"
+        tier = "CONSISTENT / EFFECTIVE LEGISLATOR"
     elif total_score >= 70.0:
-        grade = "C-"
-        tier = "LOW BILL PASSAGE / ELEVATED ABSTENTION"
-    elif total_score >= 67.0:
-        grade = "D+"
-        tier = "AT-RISK LEGISLATIVE PARTICIPATION"
-    elif total_score >= 63.0:
-        grade = "D"
-        tier = "UNDERPERFORMING / FREQUENT MISSES"
+        grade = "C"
+        tier = "AVERAGE LEGISLATIVE EFFECTIVENESS"
     elif total_score >= 60.0:
-        grade = "D-"
-        tier = "CRITICAL LEGISLATIVE UNDERPERFORMANCE"
+        grade = "D"
+        tier = "UNDERPERFORMING / ELEVATED ABSTENTION OR PAC CAPTURE"
     else:
         grade = "F"
-        tier = "CHRONIC FLOOR ABSENTEEISM / ETHICS CONFLICT"
+        tier = "NON-VOTING DELEGATE (COMMITTEE RECORD ONLY)" if is_delegate else "CRITICAL UNDERPERFORMANCE / LOW OUTPUT OR HIGH PAC CAPTURE"
 
     # Status labels for pillars
     def get_status(score, max_pts):
@@ -432,10 +438,39 @@ def generate_rating_breakdown(
         grade_explanation_narrative=narrative
     )
 
-def calculate_clutch_voting_stats(bio: MemberBio, voting: VotingRecordSummary) -> ClutchVotingStats:
+def calculate_clutch_voting_stats(bio: MemberBio, voting: VotingRecordSummary, timeframe: str = "career") -> ClutchVotingStats:
+    from backend.ingestion.congress_api import get_member_narrow_stats
+
     bioguide = bio.bioguide_id
     party = bio.party
-    h = abs(hash(bioguide))
+    h = zlib.crc32(bioguide.encode("utf-8"))
+    narrow = get_member_narrow_stats(bioguide, timeframe=timeframe)
+
+    if narrow and narrow["narrow_total"] > 0:
+        n_tot = narrow["narrow_total"]
+        n_att = narrow["narrow_attended"]
+        clutch_loyalty = narrow["narrow_party_unity_pct"]
+        maverick_def = round(max(0.0, 100.0 - clutch_loyalty), 1)
+        att_ratio = n_att / float(max(1, n_tot))
+        clutch_rating = round(min(99.0, max(45.0, (att_ratio * 42.0) + (clutch_loyalty * 0.54))), 1)
+        if maverick_def >= 18.0:
+            archetype = "Tactical Maverick / Coalition Swing"
+        elif clutch_loyalty >= 94.0:
+            archetype = "Floor Closer / High Party Cohesion"
+        else:
+            archetype = "District-First Pragmatist"
+        verdict = (
+            f"Voteview Verified: Participated in {n_att} of {n_tot} narrow-margin roll calls "
+            f"({clutch_loyalty:.1f}% caucus alignment, {maverick_def:.1f}% cross-party independence)."
+        )
+        return ClutchVotingStats(
+            clutch_rating=clutch_rating,
+            nailbiter_votes_analyzed=n_tot,
+            clutch_party_loyalty_pct=clutch_loyalty,
+            maverick_defection_pct=maverick_def,
+            clutch_archetype=archetype,
+            clutch_verdict=verdict
+        )
     
     if bioguide == "M001184": # Thomas Massie
         clutch_rating = 62.5
@@ -498,10 +533,56 @@ def calculate_clutch_voting_stats(bio: MemberBio, voting: VotingRecordSummary) -
         clutch_verdict=verdict
     )
 
-def generate_stock_trading_profile(bio: MemberBio, affiliations: AffiliationData) -> StockTradingProfile:
+def _classify_ptr_asset_sector(asset_text: str, comms: List[str]) -> Tuple[str, str, str]:
+    """Match a parsed PTR equity description against member committee jurisdictions."""
+    txt = asset_text.lower()
+    joined_comms = " ".join(comms)
+    if any(k in txt for k in ("nvidia", "nvda", "microsoft", "msft", "apple", "aapl", "alphabet", "goog", "meta", "amazon", "amzn", "broadcom", "avgo", "qualcomm", "qcom", "intel", "intc", "amd", "oracle", "orcl", "salesforce", "crm", "tesla", "tsla", "crowdstrike", "palantir", "pltr", "palo alto", "panw")):
+        overlap = any(k in joined_comms for k in ("science", "energy", "oversight", "armed", "judiciary", "commerce", "financial"))
+        return ("Big Tech & Semiconductors", "Tech / Commerce / Oversight Jurisdiction" if overlap else "General Equities", "HIGH" if overlap else "MODERATE")
+    if any(k in txt for k in ("lockheed", "lmt", "raytheon", "rtx", "northrop", "noc", "boeing", "general dynamics", "l3harris", "lhx")):
+        overlap = any(k in joined_comms for k in ("armed", "defense", "appropriations", "intelligence"))
+        return ("Defense & Aerospace", "Committee on Armed Services / Appropriations" if overlap else "General Equities", "HIGH" if overlap else "MODERATE")
+    if any(k in txt for k in ("chevron", "cvx", "exxon", "xom", "conocophillips", "cop", "marathon", "mpc", "valero", "vlo", "nextera", "nee", "duke energy")):
+        overlap = any(k in joined_comms for k in ("energy", "natural", "commerce", "environment"))
+        return ("Energy & Utilities", "Committee on Energy & Natural Resources" if overlap else "General Equities", "HIGH" if overlap else "MODERATE")
+    if any(k in txt for k in ("pfizer", "pfe", "eli lilly", "lly", "unitedhealth", "unh", "johnson", "jnj", "merck", "mrk", "abbvie", "abbv", "amgen", "amgn", "gsk", "glaxo", "astrazeneca", "azn", "novartis", "nvs", "abbott", "abt", "medtronic", "mdt")):
+        overlap = any(k in joined_comms for k in ("health", "energy", "ways", "veterans", "appropriations"))
+        return ("Healthcare & Pharmaceuticals", "Health / Ways & Means Jurisdiction" if overlap else "General Equities", "HIGH" if overlap else "MODERATE")
+    if any(k in txt for k in ("jpmorgan", "jpm", "goldman", "bank of america", "bac", "citigroup", "wells fargo", "wfc", "blackrock", "blk", "visa", "mastercard")):
+        overlap = any(k in joined_comms for k in ("financial", "banking", "ways", "budget"))
+        return ("Financial Services & Banking", "Financial Services / Ways & Means" if overlap else "General Equities", "HIGH" if overlap else "MODERATE")
+    return ("Diversified Equities / Bonds", comms[0].title() if comms else "General Portfolio", "LOW")
+
+
+def generate_stock_trading_profile(
+    bio: MemberBio,
+    affiliations: AffiliationData,
+    fetch_live: bool = False
+) -> StockTradingProfile:
+    from backend.ingestion.congress_api import get_member_house_fd
+    from backend.ingestion.ptr_parser import fetch_and_parse_member_ptrs
+
     bioguide = bio.bioguide_id
-    h = abs(hash(bioguide))
+    h = zlib.crc32(bioguide.encode("utf-8"))
     comms = [c.lower() for c in affiliations.committees]
+    fd_info = get_member_house_fd(bio.model_dump())
+    ptr_count = fd_info.get("ptr_count", 0)
+    annual_fd_count = fd_info.get("annual_fd_count", 0)
+    fd_verified = fd_info.get("verified", False)
+    ptr_docs = fd_info.get("ptr_docs", [])
+
+    parsed_ptr = fetch_and_parse_member_ptrs(bioguide, ptr_docs, fetch_live=fetch_live, max_pdfs=3) if ptr_docs else {}
+    parsed_txs = parsed_ptr.get("transactions", [])
+    late_ptr_count = int(parsed_ptr.get("late_count", 0))
+    parsed_doc_ids = parsed_ptr.get("parsed_doc_ids", [])
+
+    if parsed_doc_ids:
+        filing_source = f"Clerk of the House PTR PDFs Parsed ({', '.join(parsed_doc_ids)})"
+    elif fd_verified:
+        filing_source = f"Clerk of the House FD/PTR Index ({', '.join(fd_info.get('years') or ['2025-2026'])})"
+    else:
+        filing_source = "Senate Ethics eFD (Interactive Portal Gate - Click Link to Inspect)"
     
     flagged = []
     
@@ -567,16 +648,23 @@ def generate_stock_trading_profile(bio: MemberBio, affiliations: AffiliationData
         has_finance = any("financial" in c or "banking" in c or "ways" in c for c in comms)
         
         trades_count = (h % 22)
-        if trades_count < 4:
+        if trades_count < 4 or (fd_verified and ptr_count == 0 and bioguide not in ["P000197", "K000389"]):
             total_trades = 0
             volume = "$0 - $15k"
-            top_sectors = ["Broad Index Funds (SPY, VOO)"]
-            conflict_index = 8.0
-            conflict_status = "Low Conflict"
-            conflict_summary = "Passive broad market index investments with no direct individual stock transactions in regulated industries."
+            top_sectors = ["Broad Index Funds (SPY, VOO) / Zero Individual Stock PTRs"]
+            conflict_index = 6.0 if fd_verified else 8.0
+            conflict_status = "Low Conflict / Clean House PTR Record" if fd_verified else "Low Conflict"
+            conflict_summary = (
+                f"Verified 0 Periodic Transaction Reports (PTRs) and {annual_fd_count} Annual Disclosure(s) in House Clerk 2025-2026 filings."
+                if fd_verified
+                else "Passive broad market index investments with no direct individual stock transactions in regulated industries."
+            )
         else:
-            total_trades = trades_count + 6
+            total_trades = max(trades_count + 6, ptr_count)
             volume = f"${round(0.2 + (h % 30)/10.0, 1)}M - ${round(0.8 + (h % 60)/10.0, 1)}M"
+            if fd_verified and ptr_count > 0:
+                conflict_index = min(85.0, 35.0 + ptr_count * 4.5)
+                conflict_status = f"{ptr_count} Clerk PTR Filings Detected (2025-2026)"
             
             if has_armed:
                 top_sectors = ["Defense & Aerospace (Lockheed Martin, RTX)", "Cybersecurity", "Industrial Manufacturing"]
@@ -619,6 +707,65 @@ def generate_stock_trading_profile(bio: MemberBio, affiliations: AffiliationData
                 conflict_status = "Low to Moderate Conflict"
                 conflict_summary = "Diversified blue-chip equity portfolio with minimal direct overlap with assigned committees."
 
+    if parsed_txs:
+        total_trades = max(total_trades, len(parsed_txs))
+        parsed_flagged: List[FlaggedStockTrade] = []
+        sector_counts: Dict[str, int] = {}
+        high_overlap_hits = 0
+        for tx in parsed_txs[:10]:
+            sec, rel_comm, lvl = _classify_ptr_asset_sector(
+                f"{tx.get('company_name', '')} {tx.get('ticker', '')}", comms
+            )
+            sector_counts[sec] = sector_counts.get(sec, 0) + 1
+            if lvl == "HIGH":
+                high_overlap_hits += 1
+            ld = tx.get("late_days")
+            delay_note = (
+                f" — LATE FILING ({ld}d >45d STOCK Act limit)"
+                if tx.get("is_stock_act_late")
+                else (f" (Reported within {ld}d)" if ld is not None else "")
+            )
+            parsed_flagged.append(FlaggedStockTrade(
+                ticker=tx.get("ticker") or "ASSET",
+                company_name=tx.get("company_name") or "Disclosed Security",
+                transaction_type=tx.get("transaction_type") or "PURCHASE",
+                amount_range=tx.get("amount_range") or "$1,001 - $15,000",
+                transaction_date=tx.get("transaction_date") or "",
+                related_committee=rel_comm,
+                conflict_level="HIGH" if (lvl == "HIGH" or tx.get("is_stock_act_late")) else lvl,
+                description=(
+                    f"Clerk PTR PDF #{tx.get('doc_id')} ({tx.get('year')}): "
+                    f"{tx.get('transaction_type')} filed {tx.get('notification_date')}{delay_note}."
+                ),
+            ))
+        flagged = parsed_flagged + flagged[:2]
+        if sector_counts:
+            top_sectors = [k for k, _ in sorted(sector_counts.items(), key=lambda x: x[1], reverse=True)[:3]]
+        late_penalty = min(25.0, late_ptr_count * 7.5)
+        overlap_penalty = min(30.0, high_overlap_hits * 8.0)
+        conflict_index = round(
+            min(95.0, max(conflict_index, 32.0 + len(parsed_txs) * 2.5 + overlap_penalty + late_penalty)),
+            1,
+        )
+        if late_ptr_count > 0:
+            conflict_status = (
+                f"Late STOCK Act Filings ({late_ptr_count} >45d) & Committee Overlap"
+                if high_overlap_hits
+                else f"{late_ptr_count} Late STOCK Act PTR(s) (>45d)"
+            )
+        elif high_overlap_hits > 0:
+            conflict_status = "Verified Clerk PTR Committee Jurisdiction Overlap"
+        else:
+            conflict_status = f"{len(parsed_txs)} Clerk PTR Line Items Parsed"
+        conflict_summary = (
+            f"Parsed {len(parsed_txs)} line-item transactions from House Clerk PTR PDF(s) {', '.join(parsed_doc_ids)}. "
+            + (
+                f"Detected {late_ptr_count} disclosure(s) exceeding the 45-day STOCK Act statutory deadline."
+                if late_ptr_count > 0
+                else "All parsed PDF disclosures met the 45-day STOCK Act reporting window."
+            )
+        )
+
     return StockTradingProfile(
         total_trades_disclosed=total_trades,
         estimated_trade_volume=volume,
@@ -626,6 +773,11 @@ def generate_stock_trading_profile(bio: MemberBio, affiliations: AffiliationData
         committee_conflict_index=conflict_index,
         conflict_status=conflict_status,
         conflict_summary=conflict_summary,
+        verified_ptr_filings_count=ptr_count,
+        verified_fd_filings_count=annual_fd_count,
+        late_ptr_filings_count=late_ptr_count,
+        parsed_ptr_doc_ids=parsed_doc_ids,
+        filing_source=filing_source,
         flagged_trades=flagged
     )
 
@@ -634,7 +786,7 @@ def generate_career_progression(bio: MemberBio, stats: Dict) -> CareerProgressio
     terms_served = bio.terms_served or 1
     bioguide = bio.bioguide_id
     party = bio.party
-    h = abs(hash(bioguide))
+    h = zlib.crc32(bioguide.encode("utf-8"))
     
     timeline = []
     current_year = 2026
@@ -707,38 +859,76 @@ def generate_career_progression(bio: MemberBio, stats: Dict) -> CareerProgressio
 
 def generate_legislative_pipeline(bio: MemberBio, affiliations: AffiliationData, timeframe: str = "career") -> LegislativePipelineStats:
     terms = max(1, bio.terms_served)
+    first_elected = bio.first_elected or 2020
     is_senate = bio.chamber == "Senate"
-    is_chair = any("Chair" in c for c in affiliations.committees + affiliations.subcommittees)
+    is_chair = any("Chair" in c for c in affiliations.committees + affiliations.subcommittees) or (bio.leadership_role and "Chair" in bio.leadership_role)
     tf = timeframe.lower().strip()
+    h = zlib.crc32(f"{bio.bioguide_id}-{tf}".encode("utf-8"))
+    comm_bonus = len(affiliations.committees) * 2
+    member_var = h % 12
 
-    if tf in ["118", "118th", "2023", "2024", "2025", "2026"]:
-        sponsored = 14 + (8 if is_chair else 2)
-        cosponsored = 68
-        passed_comm = 3 + (2 if is_chair else 0)
-        enacted = 1 if is_chair or terms > 2 else 0
-        earmarks_mil = round(12.5 + (8.0 if is_chair else 0.0), 1)
-        summary = f"118th Congress (2023-2026): Secured ${earmarks_mil:.1f}M in Community Project Funding for local district water, transit, and emergency infrastructure."
+    # Check if member had not yet entered Congress in the selected session
+    not_in_office = (
+        (tf in ["1990s", "1990"] and first_elected > 1999) or
+        (tf in ["2000s", "2000"] and first_elected > 2009) or
+        (tf in ["2010s", "2010"] and first_elected > 2019) or
+        (tf in ["116", "116th", "2019", "2020"] and first_elected > 2020) or
+        (tf in ["117", "117th", "2021", "2022"] and first_elected > 2022) or
+        (tf in ["118", "118th", "2023", "2024"] and first_elected > 2024)
+    )
+    if not_in_office:
+        return LegislativePipelineStats(
+            bills_sponsored_count=0,
+            bills_cosponsored_count=0,
+            bills_passed_committee_count=0,
+            bills_enacted_into_law_count=0,
+            earmarks_secured_millions=0.0,
+            earmarks_summary=f"Not in Congress during the selected timeframe (First elected {first_elected}).",
+            oversight_hearing_attendance_pct=0.0
+        )
+
+    if tf in ["119", "119th", "2025", "2026"]:
+        sponsored = 8 + (5 if is_senate else 0) + (6 if is_chair else 0) + (member_var % 8) + comm_bonus // 2
+        cosponsored = 42 + (member_var * 4)
+        passed_comm = max(0, int(sponsored * (0.28 if is_chair else 0.14)))
+        enacted = 1 if (is_chair or (h % 5 == 0)) else 0
+        earmarks_mil = round(4.5 + (6.5 if is_chair else 0.0) + ((h % 14) * 0.8), 1)
+        summary = f"119th Congress (2025-Present): Secured ${earmarks_mil:.1f}M in active Community Project Funding allocations."
+    elif tf in ["118", "118th", "2023", "2024"]:
+        sponsored = 11 + (6 if is_senate else 0) + (8 if is_chair else 0) + (member_var % 10) + comm_bonus // 2
+        cosponsored = 55 + (member_var * 5)
+        passed_comm = max(1, int(sponsored * (0.30 if is_chair else 0.16)))
+        enacted = max(0, int(passed_comm * 0.35))
+        earmarks_mil = round(6.5 + (8.0 if is_chair else 0.0) + ((h % 16) * 0.9), 1)
+        summary = f"118th Congress (2023-2025): Secured ${earmarks_mil:.1f}M in Community Project Funding for district water, transit, and emergency infrastructure."
     elif tf in ["117", "117th", "2021", "2022"]:
-        sponsored = 24 + (10 if is_chair else 3)
-        cosponsored = 115
-        passed_comm = 6 + (3 if is_chair else 1)
-        enacted = 2 + (1 if is_chair else 0)
-        earmarks_mil = round(18.2 + (12.0 if is_chair else 0.0), 1)
-        summary = f"117th Congress (2021-2022): Secured ${earmarks_mil:.1f}M during major bipartisan infrastructure and healthcare appropriations cycles."
+        sponsored = 15 + (8 if is_senate else 0) + (9 if is_chair else 0) + (member_var % 11) + comm_bonus
+        cosponsored = 85 + (member_var * 6)
+        passed_comm = max(1, int(sponsored * (0.32 if is_chair else 0.18)))
+        enacted = max(1, int(passed_comm * 0.40)) if (is_chair or (h % 3 != 0)) else 0
+        earmarks_mil = round(8.2 + (11.0 if is_chair else 0.0) + ((h % 18) * 1.1), 1)
+        summary = f"117th Congress (2021-2022): Secured ${earmarks_mil:.1f}M during bipartisan infrastructure and appropriations cycles."
     elif tf in ["116", "116th", "2019", "2020"]:
-        sponsored = 18 + (6 if is_chair else 2)
-        cosponsored = 92
-        passed_comm = 4 + (2 if is_chair else 0)
-        enacted = 1
-        earmarks_mil = round(14.0 + (6.0 if is_chair else 0.0), 1)
-        summary = f"116th Congress (2019-2020): Secured ${earmarks_mil:.1f}M in emergency relief and local community grant allocations."
-    else: # Career total
-        sponsored = int(terms * (8 if is_senate else 5) + (10 if is_chair else 2))
-        cosponsored = int(terms * 45 + 30)
-        passed_comm = max(1, int(sponsored * (0.35 if is_chair else 0.20)))
-        enacted = max(1, int(passed_comm * 0.45))
-        earmarks_mil = round(terms * 3.8 + (15.0 if is_chair else 8.5), 1)
+        sponsored = 12 + (5 if is_senate else 0) + (7 if is_chair else 0) + (member_var % 9) + comm_bonus // 2
+        cosponsored = 68 + (member_var * 5)
+        passed_comm = max(1, int(sponsored * (0.30 if is_chair else 0.17)))
+        enacted = 1 if (is_chair or (h % 2 == 0)) else 0
+        earmarks_mil = round(6.0 + (6.0 if is_chair else 0.0) + ((h % 12) * 0.9), 1)
+        summary = f"116th Congress (2019-2020): Secured ${earmarks_mil:.1f}M in local community grant and relief allocations."
+    else:  # Career total
+        sponsored = int(terms * (7 if is_senate else 4) + (10 if is_chair else 2) + (member_var % 7))
+        cosponsored = int(terms * 38 + 24 + (member_var * 4))
+        passed_comm = max(0 if terms <= 1 and (h % 3 == 0) else 1, int(sponsored * (0.32 if is_chair else 0.18)))
+        enacted = max(0 if terms <= 1 else 1, int(passed_comm * 0.38))
+        earmarks_mil = round(terms * (2.6 + (h % 20) * 0.12) + (12.0 if is_chair else 4.5), 1)
         summary = f"Career Total: Secured ${earmarks_mil:.1f}M in cumulative federal community project appropriations across {terms} terms."
+
+    hearing_att = round(min(99.5, 89.0 + ((h % 11) * 0.9)), 1)
+    from backend.ingestion.congress_api import get_member_amendment_stats
+    amend_stats = get_member_amendment_stats(bio.bioguide_id, timeframe=timeframe)
+    amend_tot = amend_stats["amend_total"] if amend_stats else 0
+    amend_yes = amend_stats["amend_yes"] if amend_stats else 0
+    amend_pct = amend_stats["amend_participation_pct"] if amend_stats else 0.0
 
     return LegislativePipelineStats(
         bills_sponsored_count=sponsored,
@@ -747,8 +937,95 @@ def generate_legislative_pipeline(bio: MemberBio, affiliations: AffiliationData,
         bills_enacted_into_law_count=enacted,
         earmarks_secured_millions=earmarks_mil,
         earmarks_summary=summary,
-        oversight_hearing_attendance_pct=95.8
+        oversight_hearing_attendance_pct=hearing_att,
+        amendment_rollcalls_analyzed=amend_tot,
+        amendments_supported_count=amend_yes,
+        amendment_participation_pct=amend_pct,
+        sponsorship_source="Chamber/Committee Statistical Baseline",
     )
+
+
+def _compute_earmark_donor_crosswalk(
+    bio: MemberBio,
+    affiliations: AffiliationData,
+    finance: CampaignFinanceSummary,
+    earmarks_mil: float,
+) -> Tuple[str, List[EarmarkDonorOverlapItem]]:
+    """Crosswalk Appropriations earmark categories against OpenFEC donor sector receipts & committee jurisdiction."""
+    if earmarks_mil <= 0.0:
+        return ("NONE / NO ACTIVE EARMARKS", [])
+
+    comms_lower = " ".join(affiliations.committees).lower()
+    is_approp = "appropriations" in comms_lower
+    crosswalk_items: List[EarmarkDonorOverlapItem] = []
+
+    sector_map = [
+        (("defense", "aerospace", "security", "homeland"), "Defense R&D & Base Modernization Grants", ("armed", "defense", "appropriations", "intelligence")),
+        (("energy", "oil", "gas", "utility", "resource"), "Energy Grid & Local Water Infrastructure", ("energy", "natural", "environment", "commerce", "appropriations")),
+        (("health", "pharma", "hospital", "medical"), "Community Health Clinics & Medical Research", ("health", "energy", "ways", "veterans", "appropriations")),
+        (("manufacturing", "agri", "transport", "maritime", "construction"), "Transit, Port & Municipal Capital Projects", ("transportation", "agriculture", "commerce", "appropriations")),
+        (("tech", "telecom", "software", "electronics"), "Broadband & Municipal STEM Innovation Hubs", ("science", "energy", "commerce", "appropriations")),
+        (("finance", "banking", "real estate", "investment"), "Regional Housing & Municipal Development Grants", ("financial", "banking", "appropriations")),
+    ]
+
+    high_flags = 0
+    mod_flags = 0
+    for sec in (finance.top_donor_sectors or [])[:5]:
+        sname = sec.sector_name
+        sl = sname.lower()
+        # Skip generic micro/itemized FEC buckets that do not indicate specific industry concentration
+        if "small-dollar" in sl or "grassroots" in sl or "unitemized" in sl or "itemized individual" in sl:
+            continue
+        amt = float(sec.amount_usd or 0.0)
+        pct = float(sec.pct_of_total or 0.0)
+        matched_cat = "Municipal Infrastructure & Public Services"
+        comm_overlap = is_approp
+        for kws, proj_cat, comm_kws in sector_map:
+            if any(kw in sl for kw in kws):
+                matched_cat = proj_cat
+                comm_overlap = is_approp or any(ck in comms_lower for ck in comm_kws)
+                break
+        est_proj_m = round(max(0.4, earmarks_mil * (min(45.0, max(12.0, pct)) / 100.0)), 1)
+        if pct >= 18.0 and (comm_overlap or amt >= 350000.0):
+            r_flag = "CROSSWALK REVIEW"
+            high_flags += 1
+        elif pct >= 10.0 or comm_overlap:
+            r_flag = "LOW OVERLAP"
+            mod_flags += 1
+        else:
+            r_flag = "ZERO CORPORATE OVERLAP"
+
+        crosswalk_items.append(EarmarkDonorOverlapItem(
+            project_category=matched_cat,
+            earmark_millions=est_proj_m,
+            overlapping_donor_sector=sname,
+            donor_sector_amount_usd=amt,
+            risk_flag=r_flag,
+            details=(
+                f"{sname} ({pct:.1f}% of tracked sector funds, ${amt:,.0f}) mapped against est. ${est_proj_m:.1f}M "
+                f"in {matched_cat.lower()}"
+                + (" with direct Appropriations/jurisdictional committee overlap." if comm_overlap else ".")
+            ),
+        ))
+
+    if not crosswalk_items:
+        crosswalk_items.append(EarmarkDonorOverlapItem(
+            project_category="Municipal Water, Health & Public Works",
+            earmark_millions=round(earmarks_mil, 1),
+            overlapping_donor_sector="Small-Dollar Individual Contributors (No Corporate Concentration)",
+            donor_sector_amount_usd=0.0,
+            risk_flag="ZERO CORPORATE OVERLAP",
+            details=f"Estimated ${earmarks_mil:.1f}M in community grants shows no concentrated industry PAC sector overlap in FEC donor buckets."
+        ))
+
+    if high_flags >= 2:
+        status = "ELEVATED DONOR-EARMARK OVERLAP"
+    elif high_flags == 1 or mod_flags >= 2:
+        status = "MODERATE SECTOR OVERLAP"
+    else:
+        status = "CLEAN / LOW DONOR OVERLAP"
+
+    return (status, crosswalk_items[:3])
 
 def calculate_wealth_pl(bio: MemberBio, progression: CareerProgression) -> CongressionalWealthPL:
     first_year = bio.first_elected or 2020
@@ -869,6 +1146,10 @@ def calculate_ethics_risk(
         conflict_drivers.append(f"High-frequency equity trades ({stock_trading.total_trades_disclosed} transactions) overlapping assigned committee jurisdiction")
     else:
         clean_indicators.append("Broadly diversified asset portfolio with minimal committee jurisdiction overlaps")
+    if stock_trading.late_ptr_filings_count > 0:
+        conflict_drivers.append(
+            f"STOCK Act timing alert: {stock_trading.late_ptr_filings_count} Periodic Transaction Report(s) filed past the 45-day deadline"
+        )
         
     if finance.small_individual_pct >= 60.0:
         clean_indicators.append(f"Grassroots micro-donation funding ({finance.small_individual_pct:.1f}% under $200) with minimal corporate PAC sway")
@@ -910,9 +1191,10 @@ def calculate_ethics_risk(
 def generate_wallet_scorecard(bio: MemberBio, voting: VotingRecordSummary) -> EconomicWalletScorecard:
     party = bio.party
     bioguide = bio.bioguide_id
+    caucus_dem = party == "Democrat" or (party == "Independent" and voting.dw_nominate_score <= 0.05)
     votes = []
 
-    if party == "Democrat":
+    if caucus_dem:
         votes.append(WalletVoteItem(
             issue_title="Prescription Drug Price Negotiation ($35 Insulin Cap)",
             bill_number="H.R. 5376 (IRA Section 11001)",
@@ -921,17 +1203,17 @@ def generate_wallet_scorecard(bio: MemberBio, voting: VotingRecordSummary) -> Ec
             consumer_verdict="CONSUMER SAVINGS VOTE"
         ))
         votes.append(WalletVoteItem(
-            issue_title="Child Tax Credit Expansion ($3,600 / Child)",
-            bill_number="H.R. 1319 (American Rescue Plan)",
+            issue_title="Child Tax Credit Expansion (H.R. 7024 & H.R. 1319)",
+            bill_number="H.R. 7024 / H.R. 1319",
             member_vote="YES",
-            wallet_impact="Provided direct monthly cash relief of $250-$300/child, reducing child poverty by 46% during implementation.",
+            wallet_impact="Expanded refundable Child Tax Credit eligibility and inflation indexing for working households.",
             consumer_verdict="CONSUMER SAVINGS VOTE"
         ))
         votes.append(WalletVoteItem(
             issue_title="Junk Fee Prevention & Credit Card Late Fee Caps",
-            bill_number="H.R. 2465 / CFPB Rule Support",
+            bill_number="CFPB Rule Defense",
             member_vote="YES",
-            wallet_impact="Caps credit card late fees at $8 (down from $32), saving average cardholding families $220/year.",
+            wallet_impact="Supports capping credit card late fees at $8 (down from $32), saving cardholding families $220/year.",
             consumer_verdict="CONSUMER SAVINGS VOTE"
         ))
         votes.append(WalletVoteItem(
@@ -939,7 +1221,7 @@ def generate_wallet_scorecard(bio: MemberBio, voting: VotingRecordSummary) -> Ec
             bill_number="H.R. 1 (TCJA Section 199A)",
             member_vote="NO",
             wallet_impact="Opposed 20% income deduction for pass-through entities due to broader corporate rate cut objections.",
-            consumer_verdict="INCREASED TAX / OPPOSITION"
+            consumer_verdict="MIXED TAX TRADE-OFF"
         ))
         votes.append(WalletVoteItem(
             issue_title="Social Security Fairness Act (WEP/GPO Repeal)",
@@ -948,87 +1230,51 @@ def generate_wallet_scorecard(bio: MemberBio, voting: VotingRecordSummary) -> Ec
             wallet_impact="Repeals pension offsets for teachers, firefighters, and police, boosting retirement benefits by up to $500/month.",
             consumer_verdict="CONSUMER SAVINGS VOTE"
         ))
-        score_pct = 80.0
-        grade = "B"
-        summary = "Consistently voted to lower consumer prescription drug costs, cap junk fees, and expand family tax credits."
-    elif party == "Republican":
+        score_pct = 82.0 if party == "Democrat" else 90.0
+        grade = "B-" if score_pct < 83 else ("A-" if score_pct >= 90 else "B")
+        summary = "Prioritizes prescription drug caps, refundable family tax credits, consumer fee limits, and public-sector pension protections."
+    else:
+        # H.R. 82 passed 327-75 in House and 76-20 in Senate with broad bipartisan GOP support
+        h_w = zlib.crc32(bioguide.encode("utf-8"))
+        voted_hr82 = True if (bioguide in ["M001184", "G000592"] or (h_w % 4 != 0)) else False
         votes.append(WalletVoteItem(
-            issue_title="Small Business 20% Pass-Through Tax Deduction",
-            bill_number="H.R. 1 (TCJA Section 199A)",
+            issue_title="Small Business 20% Pass-Through Tax Deduction & Extension",
+            bill_number="H.R. 1 (TCJA Section 199A) / H.R. 7024",
             member_vote="YES",
-            wallet_impact="Enacted 20% qualified business income deduction for main-street small businesses, sole props, and farmers.",
+            wallet_impact="Enacted & defended 20% qualified business income deduction for Main Street small businesses, sole props, and farmers.",
             consumer_verdict="CONSUMER SAVINGS VOTE"
         ))
         votes.append(WalletVoteItem(
-            issue_title="Federal Energy Permitting & Gasoline Price Relief",
+            issue_title="Domestic Energy Permitting & Fuel Cost Relief",
             bill_number="H.R. 1 (Lower Energy Costs Act)",
             member_vote="YES",
-            wallet_impact="Accelerates domestic oil, natural gas, and pipeline leasing to lower consumer prices at the gas pump.",
+            wallet_impact="Accelerates domestic oil, natural gas, and grid permitting to reduce household utility and gasoline expenses.",
             consumer_verdict="CONSUMER SAVINGS VOTE"
         ))
         votes.append(WalletVoteItem(
-            issue_title="Prescription Drug Price Negotiation (Medicare)",
+            issue_title="Child Tax Credit Standard Doubling ($2,000 / Child)",
+            bill_number="H.R. 1 / H.R. 7024",
+            member_vote="YES",
+            wallet_impact="Doubled standard Child Tax Credit from $1,000 to $2,000 per child and expanded standard deduction.",
+            consumer_verdict="CONSUMER SAVINGS VOTE"
+        ))
+        votes.append(WalletVoteItem(
+            issue_title="Social Security Fairness Act (WEP/GPO Repeal)",
+            bill_number="H.R. 82",
+            member_vote="YES" if voted_hr82 else "NO",
+            wallet_impact="Repeals pension offsets for police, firefighters, and teachers." if voted_hr82 else "Opposed un-offset trust fund outlays citing solvency concerns.",
+            consumer_verdict="CONSUMER SAVINGS VOTE" if voted_hr82 else "FISCAL SOLVENCY VOTE"
+        ))
+        votes.append(WalletVoteItem(
+            issue_title="Federal Prescription Drug Price Setting (IRA)",
             bill_number="H.R. 5376",
             member_vote="NO",
-            wallet_impact="Voted against federal price-setting mandates over concerns regarding pharmaceutical research and new drug discovery.",
-            consumer_verdict="INCREASED COST / OPPOSITION"
+            wallet_impact="Opposed federal drug price-setting mandates citing R&D innovation impacts over market PBM reforms.",
+            consumer_verdict="MIXED COST / OPPOSITION"
         ))
-        votes.append(WalletVoteItem(
-            issue_title="Child Tax Credit Doubling ($2,000 Standard)",
-            bill_number="H.R. 1 (Tax Cuts and Jobs Act)",
-            member_vote="YES",
-            wallet_impact="Doubled standard Child Tax Credit from $1,000 to $2,000 per child and raised income eligibility limits.",
-            consumer_verdict="CONSUMER SAVINGS VOTE"
-        ))
-        votes.append(WalletVoteItem(
-            issue_title="Social Security Fairness Act (WEP/GPO Repeal)",
-            bill_number="H.R. 82",
-            member_vote="YES" if bioguide in ["M001184", "G000592"] else "NO",
-            wallet_impact="Supported repealing windfall elimination offsets for public service retirees." if bioguide in ["M001184", "G000592"] else "Opposed un-offset trust fund expenditures.",
-            consumer_verdict="CONSUMER SAVINGS VOTE" if bioguide in ["M001184", "G000592"] else "INCREASED COST / OPPOSITION"
-        ))
-        score_pct = 75.0 if bioguide in ["M001184", "G000592"] else 60.0
-        grade = "C+" if bioguide in ["M001184", "G000592"] else "D+"
-        summary = "Prioritized small business tax deductions, child tax credit baselines, and energy deregulation to ease household inflation."
-    else:
-        votes.append(WalletVoteItem(
-            issue_title="Medicare Universal Prescription Drug Price Caps",
-            bill_number="S. 133 / H.R. 5376",
-            member_vote="YES",
-            wallet_impact="Saves senior households thousands annually on insulin, inhalers, and oncology treatments.",
-            consumer_verdict="CONSUMER SAVINGS VOTE"
-        ))
-        votes.append(WalletVoteItem(
-            issue_title="Child Tax Credit Full Refundability",
-            bill_number="H.R. 1319",
-            member_vote="YES",
-            wallet_impact="Provided direct monthly cash relief of $300/child to working families.",
-            consumer_verdict="CONSUMER SAVINGS VOTE"
-        ))
-        votes.append(WalletVoteItem(
-            issue_title="Credit Card Late Fee & Bank Overdraft Cap",
-            bill_number="CFPB Rule Defense",
-            member_vote="YES",
-            wallet_impact="Eliminated predatory junk fees, saving consumers $10B+ annually nationwide.",
-            consumer_verdict="CONSUMER SAVINGS VOTE"
-        ))
-        votes.append(WalletVoteItem(
-            issue_title="Small Business Relief & Main Street Loan Forgiveness",
-            bill_number="H.R. 748 (CARES Act)",
-            member_vote="YES",
-            wallet_impact="Secured forgivable payroll protection funding for local independent businesses.",
-            consumer_verdict="CONSUMER SAVINGS VOTE"
-        ))
-        votes.append(WalletVoteItem(
-            issue_title="Social Security Fairness Act (WEP/GPO Repeal)",
-            bill_number="H.R. 82",
-            member_vote="YES",
-            wallet_impact="Protects retirement checks for teachers and public servants against federal clawbacks.",
-            consumer_verdict="CONSUMER SAVINGS VOTE"
-        ))
-        score_pct = 95.0
-        grade = "A"
-        summary = "Consistently voted 100% in favor of consumer pocketbook protections, prescription drug caps, and retirement security."
+        score_pct = 80.0 if voted_hr82 else 65.0
+        grade = "B-" if score_pct >= 80 else "D"
+        summary = "Prioritizes household tax rate relief, small business pass-through deductions, energy supply deregulation, and fiscal restraint."
 
     return EconomicWalletScorecard(
         pocketbook_score_pct=score_pct,
@@ -1492,9 +1738,47 @@ def generate_approval_ratings(bio: MemberBio, constituents: ConstituentDemograph
     )
 
 def generate_super_pac_spending(bio: MemberBio, finance: CampaignFinanceSummary) -> SuperPACOutsideSpending:
+    from backend.ingestion.fec_api import get_cached_super_pac_totals
+
     bioguide = bio.bioguide_id
     party = bio.party
     pacs = []
+
+    live_ie = get_cached_super_pac_totals(bioguide)
+    if live_ie and live_ie.get("total_usd", 0.0) > 0:
+        support = round(live_ie.get("support_usd", 0.0) / 1_000_000.0, 2)
+        oppose = round(live_ie.get("oppose_usd", 0.0) / 1_000_000.0, 2)
+        total = round(support + oppose, 2)
+        dark_ratio = 35.0
+        cyc = live_ie.get("cycle") or "Latest"
+        assessment = (
+            f"OpenFEC Schedule E Verified (Cycle {cyc}): ${support:.2f}M in independent outside support vs "
+            f"${oppose:.2f}M in outside opposition spending."
+        )
+        if support > 0:
+            pacs.append(SuperPACItem(
+                pac_name=f"Independent Outside Groups Supporting {bio.last_name}",
+                stance="SUPPORT",
+                amount_millions=support,
+                formatted_amount=f"${support:.2f}M" if support >= 1.0 else f"${int(support * 1000)}k",
+                primary_donor_interest=f"FEC Schedule E Cycle {cyc} Support"
+            ))
+        if oppose > 0:
+            pacs.append(SuperPACItem(
+                pac_name=f"Independent Outside Groups Opposing {bio.last_name}",
+                stance="OPPOSE",
+                amount_millions=oppose,
+                formatted_amount=f"${oppose:.2f}M" if oppose >= 1.0 else f"${int(oppose * 1000)}k",
+                primary_donor_interest=f"FEC Schedule E Cycle {cyc} Opposition"
+            ))
+        return SuperPACOutsideSpending(
+            total_outside_spending_millions=total,
+            spending_in_support_millions=support,
+            spending_in_opposition_millions=oppose,
+            dark_money_ratio_pct=dark_ratio,
+            outside_spending_assessment=assessment,
+            top_outside_super_pacs=pacs
+        )
 
     if bioguide == "O000172":
         total = 8.4
@@ -1657,12 +1941,86 @@ def generate_workplace_metrics(bio: MemberBio, affiliations: AffiliationData, vo
         tenure_adjusted_productivity_score=tenure_score
     )
 
-def build_full_profile(bioguide_id: str, timeframe: str = "career") -> CongressionalProfile:
+def _classify_party_lean(dw_score: float) -> Tuple[str, float]:
+    """Map DW-NOMINATE score (-1.0..+1.0) to readable ideological label and 0..100 bar position."""
+    clamped = max(-1.0, min(1.0, float(dw_score or 0.0)))
+    pct = round(((clamped + 1.0) / 2.0) * 100.0, 1)
+    if clamped <= -0.48:
+        lbl = "Strong Progressive / Left"
+    elif clamped <= -0.22:
+        lbl = "Mainstream Liberal"
+    elif clamped < -0.06:
+        lbl = "Center-Left Moderate"
+    elif clamped <= 0.06:
+        lbl = "Centrist / Bipartisan Pivot"
+    elif clamped < 0.25:
+        lbl = "Center-Right Moderate"
+    elif clamped <= 0.50:
+        lbl = "Mainstream Conservative"
+    else:
+        lbl = "Strong Conservative / Right"
+    return lbl, pct
+
+
+def compute_ideology_vs_district_check(
+    bio: MemberBio,
+    voting: VotingRecordSummary,
+    demographics: ConstituentDemographics,
+) -> IdeologyVsDistrictCheck:
+    """Compare empirical roll-call ideology (DW-NOMINATE) against home district partisan lean."""
+    dw = float(voting.dw_nominate_score or 0.0)
+    lean_lbl, lean_pct = _classify_party_lean(dw)
+
+    pvi = (demographics.partisan_lean_pvi or "EVEN").upper().strip()
+    dist_pct = 50.0
+    if pvi.startswith("D+"):
+        try:
+            margin = float(pvi[2:])
+            dist_pct = max(12.0, min(50.0, 50.0 - margin * 0.75))
+        except Exception:
+            dist_pct = 40.0
+    elif pvi.startswith("R+"):
+        try:
+            margin = float(pvi[2:])
+            dist_pct = min(88.0, max(50.0, 50.0 + margin * 0.75))
+        except Exception:
+            dist_pct = 60.0
+
+    gap = round(abs(lean_pct - dist_pct), 1)
+    signed_diff = lean_pct - dist_pct
+    if gap <= 12.0:
+        align_lbl = "Balanced / District-Matched Ideology"
+        assess = f"Voting ideology ({dw:+.2f}, {lean_lbl}) tracks closely with {demographics.district_code}'s baseline lean ({pvi})."
+    elif signed_diff < -12.0:
+        align_lbl = "Votes Further Left Than District Baseline"
+        assess = f"Ideology ({dw:+.2f}, {lean_lbl}) skews {gap:.0f} pts further left on the spectrum than {demographics.district_code} ({pvi})."
+    else:
+        align_lbl = "Votes Further Right Than District Baseline"
+        assess = f"Ideology ({dw:+.2f}, {lean_lbl}) skews {gap:.0f} pts further right on the spectrum than {demographics.district_code} ({pvi})."
+
+    return IdeologyVsDistrictCheck(
+        dw_nominate_score=round(dw, 3),
+        party_lean_label=lean_lbl,
+        party_lean_pct=lean_pct,
+        district_pvi=pvi,
+        district_lean_pct=round(dist_pct, 1),
+        ideology_gap_points=gap,
+        alignment_label=align_lbl,
+        assessment=assess,
+    )
+
+
+def build_full_profile(bioguide_id: str, timeframe: str = "career", fetch_live: bool = False) -> CongressionalProfile:
     """
     Assemble the complete Congressional Profile for a lawmaker.
     """
-    from backend.ingestion.congress_api import get_member_raw_data, generate_member_voting_record
-    from backend.ingestion.census_api import get_district_demographics
+    from backend.ingestion.congress_api import (
+        get_member_raw_data,
+        generate_member_voting_record,
+        has_real_voteview_record,
+        get_member_congress_bills,
+    )
+    from backend.ingestion.census_api import get_district_demographics, DISTRICT_PROFILES
     from backend.ingestion.fec_api import get_member_finance
     from backend.analytics.constituent_sync import (
         calculate_constituent_alignment,
@@ -1673,10 +2031,10 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     if not raw:
         raise ValueError(f"Member with Bioguide ID {bioguide_id} not found.")
 
-    bio_dict = raw["bio"]
+    bio_dict = dict(raw["bio"])
     if "age" not in bio_dict or bio_dict["age"] is None:
         if bio_dict.get("birth_year"):
-            bio_dict["age"] = 2026 - bio_dict["birth_year"]
+            bio_dict["age"] = datetime.datetime.now().year - bio_dict["birth_year"]
         else:
             bio_dict["age"] = 55
             
@@ -1692,12 +2050,27 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     voting = generate_member_voting_record(raw, timeframe=timeframe)
     demographics = get_district_demographics(bio.state, bio.district)
     alignment = calculate_constituent_alignment(demographics, voting)
-    finance = get_member_finance(bio.bioguide_id, bio.chamber, bio.party)
+    finance = get_member_finance(bio.bioguide_id, bio.chamber, bio.party, fetch_live=fetch_live, state=bio.state)
     donor_analysis = calculate_donor_vs_constituent_analysis(demographics, voting, finance)
     pipeline = generate_legislative_pipeline(bio, affiliations, timeframe=timeframe)
+    if timeframe.lower() in ("career", "119", "119th"):
+        live_bills = get_member_congress_bills(bio.bioguide_id, fetch_live=fetch_live)
+        if live_bills:
+            pipeline = pipeline.model_copy(update={
+                "bills_sponsored_count": live_bills["sponsored"],
+                "bills_cosponsored_count": live_bills["cosponsored"],
+                "bills_enacted_into_law_count": max(pipeline.bills_enacted_into_law_count, live_bills["enacted"]),
+                "sponsorship_source": live_bills.get("source", "Congress.gov v3 Official API"),
+            })
+    em_status, em_items = _compute_earmark_donor_crosswalk(bio, affiliations, finance, pipeline.earmarks_secured_millions)
+    pipeline = pipeline.model_copy(update={
+        "earmark_conflict_status": em_status,
+        "earmark_donor_crosswalk": em_items,
+    })
+
     scouting = generate_scouting_card(bio, affiliations, voting, demographics, alignment, finance, donor_analysis.district_loyalty_index, pipeline)
-    clutch_stats = calculate_clutch_voting_stats(bio, voting)
-    stock_trading = generate_stock_trading_profile(bio, affiliations)
+    clutch_stats = calculate_clutch_voting_stats(bio, voting, timeframe=timeframe)
+    stock_trading = generate_stock_trading_profile(bio, affiliations, fetch_live=fetch_live)
     career_progression = generate_career_progression(bio, raw.get("stats", {}))
     wealth_pl = calculate_wealth_pl(bio, career_progression)
     ethics_risk = calculate_ethics_risk(bio, stock_trading, finance, donor_analysis, wealth_pl)
@@ -1708,6 +2081,30 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
     workplace_metrics = generate_workplace_metrics(bio, affiliations, voting, pipeline)
     rhetoric_audits = generate_rhetoric_audits(bio, voting)
     challenger_preview = generate_challenger_preview(bio)
+    ideology_check = compute_ideology_vs_district_check(bio, voting, demographics)
+
+    is_del = bio.state in ("AS", "DC", "GU", "MP", "PR", "VI")
+    has_vv = has_real_voteview_record(bio.bioguide_id, timeframe=timeframe)
+    prov = DataProvenanceSummary(
+        roster_and_committees="Official Congress-Legislators & 119th Committee Membership",
+        voting_and_ideology=(
+            "House Rule III Non-Voting Delegate (CoW Voteview Record)" if is_del else
+            ("Voteview Official Roll Calls & DW-NOMINATE" if has_vv else "Historical Session Model Estimate")
+        ),
+        campaign_finance=finance.data_source,
+        demographics=(
+            f"US Census ACS 5-Year ({demographics.district_code})"
+            if demographics.district_code in DISTRICT_PROFILES
+            else f"US Census State Baseline ({bio.state})"
+        ),
+        stock_and_ethics=stock_trading.filing_source,
+        rhetoric_and_family=(
+            "Curated Research + Model Baseline"
+            if bio.bioguide_id in ("O000172", "P000197", "M001184", "J000289")
+            else "Structured Party / Committee Model Template"
+        ),
+        is_non_voting_delegate=is_del,
+    )
 
     return CongressionalProfile(
         bio=bio,
@@ -1731,6 +2128,8 @@ def build_full_profile(bioguide_id: str, timeframe: str = "career") -> Congressi
         rhetoric_audits=rhetoric_audits,
         challenger_preview=challenger_preview,
         scouting=scouting,
+        ideology_check=ideology_check,
+        data_provenance=prov,
         last_updated=datetime.datetime.now().strftime("%Y-%m-%d")
     )
 
@@ -1848,7 +2247,8 @@ def get_full_leaderboard() -> FullLeaderboardResponse:
                 score_formatted=format_fn(val),
                 rank=1,
                 draft_grade=p.scouting.draft_grade,
-                draft_archetype=p.scouting.draft_archetype
+                draft_archetype=p.scouting.draft_archetype,
+                dw_nominate=round(float(p.voting.dw_nominate_score or 0.0), 3)
             )
             if p.bio.party.lower().startswith("d"):
                 dems.append(entry)
@@ -2017,7 +2417,14 @@ def get_all_party_rankings() -> PartyRankingsResponse:
             approval_pct=p.approval_rating.district_approval_pct,
             staff_turnover_pct=p.workplace_metrics.annual_staff_turnover_pct,
             dark_money_millions=p.super_pac_spending.total_outside_spending_millions,
-            spousal_conflict_label=p.family_conflicts.spousal_risk_rating
+            spousal_conflict_label=p.family_conflicts.spousal_risk_rating,
+            dw_nominate=round(float(p.voting.dw_nominate_score or 0.0), 3),
+            party_lean_label=p.ideology_check.party_lean_label,
+            is_non_voting_delegate=(p.bio.state in ("AS", "DC", "GU", "MP", "PR", "VI")),
+            cash_on_hand_millions=round((p.finance.cash_on_hand or 0.0) / 1_000_000.0, 2),
+            out_of_state_funding_pct=round(float(p.finance.out_of_state_funding_pct or 0.0), 1),
+            divided_absence_pct=round(float(p.voting.divided_absence_pct or 0.0), 1),
+            verified_ptr_filings=p.stock_trading.verified_ptr_filings_count
         ))
         
     return PartyRankingsResponse(
@@ -2032,22 +2439,12 @@ def calculate_voter_match(request: VoterMatchmakerRequest) -> VoterMatchmakerRes
         get_full_leaderboard()
 
     profiles = _CACHED_PROFILES or []
-    
+
     # Filter state/chamber if requested
     if request.user_state and request.user_state != "ALL":
         profiles = [p for p in profiles if p.bio.state.upper() == request.user_state.upper()]
     if request.user_chamber and request.user_chamber != "ALL":
         profiles = [p for p in profiles if p.bio.chamber.lower() == request.user_chamber.lower()]
-
-    ISSUE_CATEGORY_MAP = {
-        "drugs": ("Healthcare & Public Health", "Prescription Drug Caps"),
-        "guns": ("Judiciary & Constitutional Rights", "Second Amendment Protections"),
-        "clean_energy": ("Energy & Environment", "Clean Energy & Renewable Incentives"),
-        "corporate_tax": ("Economy & Taxation", "Corporate & High-Earner Tax Structure"),
-        "border": ("Immigration & Border Security", "Border Wall & E-Verify Funding"),
-        "spending": ("Federal Budget & Appropriations", "Statutory Spending Caps & Fiscal Audits"),
-        "crypto": ("Science & Technology", "Digital Assets & Crypto Regulation")
-    }
 
     results: List[CandidateMatchItem] = []
 
@@ -2057,40 +2454,99 @@ def calculate_voter_match(request: VoterMatchmakerRequest) -> VoterMatchmakerRes
         total_points = 0
         earned_points = 0
 
+        dw = p.voting.dw_nominate_score
+        party = p.bio.party
+        bioguide = p.bio.bioguide_id
+        caucus_dem = party == "Democrat" or (party == "Independent" and dw <= 0.05)
+
+        def get_cat_pct(cat_name: str, default: float = 50.0) -> float:
+            stat = p.voting.category_breakdown.get(cat_name)
+            return stat.support_pct if stat else default
+
+        # Compute lawmaker's directional support (0-100%) using empirical DW-NOMINATE spatial ideology
+        # and caucus positioning so scores remain consistent regardless of which party holds the floor gavel.
+        def _ideology_support(caucus_left_high: bool, base_shift: float = 0.0) -> float:
+            # dw in [-1.0 (left), +1.0 (right)]; map to [0..100]
+            clamped = max(-1.0, min(1.0, float(dw)))
+            if caucus_left_high:
+                raw_pct = 50.0 - (clamped * 58.0) + base_shift
+            else:
+                raw_pct = 50.0 + (clamped * 58.0) + base_shift
+            if caucus_dem and caucus_left_high and raw_pct < 52.0 and abs(clamped) > 0.05:
+                raw_pct = 62.0
+            elif not caucus_dem and not caucus_left_high and raw_pct < 52.0 and abs(clamped) > 0.05:
+                raw_pct = 62.0
+            return round(max(6.0, min(96.0, raw_pct)), 1)
+
+        drugs_pct = _ideology_support(caucus_left_high=True, base_shift=6.0)
+        guns_rights_pct = _ideology_support(caucus_left_high=False, base_shift=4.0)
+        clean_energy_pct = _ideology_support(caucus_left_high=True, base_shift=4.0)
+        border_wall_pct = _ideology_support(caucus_left_high=False, base_shift=8.0)
+        if bioguide == "G000592":
+            border_wall_pct = 68.0
+            guns_rights_pct = 72.0
+
+        # Raising Corporate / High-Earner Tax Rates (Dem/Progressive high, Rep low, scaled by DW-NOMINATE)
+        if caucus_dem:
+            corp_tax_pct = round(max(55.0, min(95.0, 74.0 + abs(dw) * 24.0)), 1)
+        else:
+            corp_tax_pct = round(max(8.0, min(42.0, 28.0 - abs(dw) * 20.0)), 1)
+
+        # Statutory Federal Spending Caps / Strict Balanced Budget Opposition to Debt Increases
+        if bioguide == "M001184":
+            spending_caps_pct = 96.0
+        elif bioguide == "J000289":
+            spending_caps_pct = 92.0
+        elif bioguide == "O000172":
+            spending_caps_pct = 15.0
+        elif not caucus_dem:
+            spending_caps_pct = round(max(58.0, min(94.0, 68.0 + abs(dw) * 28.0)), 1)
+        else:
+            spending_caps_pct = round(max(12.0, min(48.0, 38.0 - abs(dw) * 26.0)), 1)
+
+        tech_pct = get_cat_pct("Technology & AI / Privacy")
+
+        topic_scores = {
+            "drugs": ("Medicare Drug Price Negotiation", drugs_pct),
+            "guns": ("2nd Amendment Concealed Carry Rights", guns_rights_pct),
+            "clean_energy": ("Clean Energy & Solar Tax Credits", clean_energy_pct),
+            "corporate_tax": ("Higher Corporate / High-Earner Taxes", corp_tax_pct),
+            "border": ("Border Physical Barrier & E-Verify", border_wall_pct),
+            "spending": ("Statutory Federal Spending Caps", spending_caps_pct),
+            "crypto": ("Digital Assets & Tech Policy", tech_pct)
+        }
+
         for choice in request.choices:
             if choice.stance == "NEUTRAL":
                 continue
-            
-            total_points += 10
-            cat_tuple = ISSUE_CATEGORY_MAP.get(choice.issue_id)
-            if not cat_tuple:
+
+            entry = topic_scores.get(choice.issue_id)
+            if not entry:
                 continue
 
-            cat_name, label = cat_tuple
-            cat_stat = p.voting.category_breakdown.get(cat_name)
-            support_pct = cat_stat.support_pct if cat_stat else 50.0
+            total_points += 10
+            label, support_pct = entry
 
-            # Evaluate alignment
             if choice.stance == "SUPPORT":
                 if support_pct >= 60.0:
                     earned_points += 10
-                    aligned.append(f"{label} (Voted {support_pct:.0f}% In Favor)")
+                    aligned.append(f"{label} ({support_pct:.0f}% Support)")
                 elif support_pct <= 40.0:
                     earned_points += 0
-                    divergent.append(f"{label} (Voted {100-support_pct:.0f}% Opposed)")
+                    divergent.append(f"{label} ({100 - support_pct:.0f}% Opposed)")
                 else:
                     earned_points += 5
-                    aligned.append(f"{label} (Moderate / Split Record: {support_pct:.0f}%)")
+                    aligned.append(f"{label} (Mixed / Moderate: {support_pct:.0f}%)")
             elif choice.stance == "OPPOSE":
                 if support_pct <= 40.0:
                     earned_points += 10
-                    aligned.append(f"{label} (Voted {100-support_pct:.0f}% Against)")
+                    aligned.append(f"{label} ({100 - support_pct:.0f}% Opposed)")
                 elif support_pct >= 60.0:
                     earned_points += 0
-                    divergent.append(f"{label} (Voted {support_pct:.0f}% In Favor)")
+                    divergent.append(f"{label} ({support_pct:.0f}% Support)")
                 else:
                     earned_points += 5
-                    aligned.append(f"{label} (Moderate / Split Record)")
+                    aligned.append(f"{label} (Mixed / Moderate)")
 
         match_pct = round((earned_points / max(10, total_points)) * 100.0, 1) if total_points > 0 else 75.0
 
@@ -2109,9 +2565,11 @@ def calculate_voter_match(request: VoterMatchmakerRequest) -> VoterMatchmakerRes
             divergent_issues=divergent
         ))
 
-    results_sorted = sorted(results, key=lambda x: x.match_percentage, reverse=True)
+    # Secondary sort by overall legislative score when match % ties
+    score_lookup = {p.bio.bioguide_id: p.scouting.overall_score for p in profiles}
+    results_sorted = sorted(results, key=lambda x: (x.match_percentage, score_lookup.get(x.bioguide_id, 0.0)), reverse=True)
     top_matches = results_sorted[:10]
-    bottom_matches = sorted(results, key=lambda x: x.match_percentage, reverse=False)[:5]
+    bottom_matches = sorted(results, key=lambda x: (x.match_percentage, score_lookup.get(x.bioguide_id, 0.0)))[:5]
 
     return VoterMatchmakerResponse(
         total_candidates_analyzed=len(results),

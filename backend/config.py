@@ -1,5 +1,5 @@
 """
-Configuration settings for Congress NextGenStats
+Configuration settings for Congress Civic Analytics
 """
 import os
 from pathlib import Path
@@ -15,11 +15,19 @@ CARDS_DIR = OUTPUT_DIR / "cards"
 for d in [DATA_DIR, CACHE_DIR, OUTPUT_DIR, VIDEOS_DIR, CARDS_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
-# API Keys (can be configured via environment variables or .env)
-CONGRESS_API_KEY = os.environ.get("CONGRESS_API_KEY", "")
-CENSUS_API_KEY = os.environ.get("CENSUS_API_KEY", "")
-OPEN_SECRETS_API_KEY = os.environ.get("OPEN_SECRETS_API_KEY", "")
-FEC_API_KEY = os.environ.get("FEC_API_KEY", "")
+# API Keys & Deployment Security (configured via environment variables or .env)
+CONGRESS_API_KEY = os.environ.get("CONGRESS_API_KEY", "").strip()
+CENSUS_API_KEY = os.environ.get("CENSUS_API_KEY", "").strip()
+FEC_API_KEY = os.environ.get("FEC_API_KEY", "").strip()
+
+# Public-exposure protection settings (recommended when running behind Cloudflare Tunnel)
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "").strip()
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        "ALLOWED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000"
+    ).split(",") if o.strip()
+]
 
 # Voice synthesis settings
 DEFAULT_VOICE = os.environ.get("CONGRESS_TTS_VOICE", "en-US-ChristopherNeural")  # Deep energetic sports-anchor voice

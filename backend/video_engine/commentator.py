@@ -1,6 +1,6 @@
 """
-Commentator Script Generator for NextGenStats Congressional Scouting Reports
-Generates fast-paced, high-impact sports broadcast voiceover scripts.
+Commentator Script Generator for Congress Civic Analytics Lawmaker Reports
+Generates fast-paced, high-impact broadcast voiceover scripts.
 """
 from typing import Dict, List
 from backend.models import CongressionalProfile
@@ -50,9 +50,9 @@ def generate_commentator_script(profile: CongressionalProfile) -> Dict[str, str]
 
     # Segment 5: Pro Comparison & Final Draft Grade
     verdict = (
-        f"In the film room, the pro comparison matches {scouting.pro_comparison_name}. "
+        f"In the film room, the historical comparison matches {scouting.pro_comparison_name}. "
         f"Key strength: {scouting.strengths[0] if scouting.strengths else 'Caucus reliability'}. "
-        f"Final draft grade: {scouting.draft_grade}. That's your NextGen Stats scouting breakdown."
+        f"Final legislative grade: {scouting.draft_grade}. That's your Congress Civic Analytics breakdown."
     )
 
     return {

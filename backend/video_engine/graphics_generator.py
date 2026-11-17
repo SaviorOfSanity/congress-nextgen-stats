@@ -1,6 +1,6 @@
 """
-High-Impact Sports Broadcast & Draft Card Graphics Generator
-Produces NextGenStats HUD cards, radar charts, and film room slides.
+High-Impact Broadcast & Civic Dossier Card Graphics Generator
+Produces Civic Analytics HUD cards, radar charts, and film room slides.
 """
 import io
 import math
@@ -46,7 +46,7 @@ def download_member_photo(url: str, bioguide_id: str = "") -> Image.Image:
 
     for target_url in candidate_urls:
         try:
-            resp = requests.get(target_url, timeout=5, headers={"User-Agent": "CongressNextGen/1.0"})
+            resp = requests.get(target_url, timeout=5, headers={"User-Agent": "CongressCivicAnalytics/1.0"})
             if resp.status_code == 200 and len(resp.content) > 100:
                 img = Image.open(io.BytesIO(resp.content)).convert("RGBA")
                 return img
@@ -62,7 +62,7 @@ def download_member_photo(url: str, bioguide_id: str = "") -> Image.Image:
 
 def create_radar_chart(profile: CongressionalProfile, size: Tuple[int, int] = (600, 600)) -> Image.Image:
     """
-    Generate 6-axis NextGenStats Combine Radar Polygon.
+    Generate 6-axis Civic Performance Radar Polygon.
     """
     labels = [
         "Party Loyalty", 
@@ -124,8 +124,8 @@ def create_slide_1_intro(profile: CongressionalProfile, is_vertical: bool = True
     draw.line([0, 140 if is_vertical else 100, width, 140 if is_vertical else 100], fill=ACCENT_CYAN, width=3)
     
     # Title Text
-    draw.text((width // 2, 40 if is_vertical else 25), "CONGRESSIONAL NEXTGEN STATS", fill=ACCENT_CYAN, anchor="mm", font_size=32)
-    draw.text((width // 2, 85 if is_vertical else 65), "OFFICIAL SCOUTING REPORT & DRAFT PROFILE", fill=TEXT_MUTED, anchor="mm", font_size=20)
+    draw.text((width // 2, 40 if is_vertical else 25), "CONGRESS CIVIC ANALYTICS", fill=ACCENT_CYAN, anchor="mm", font_size=32)
+    draw.text((width // 2, 85 if is_vertical else 65), "OFFICIAL LAWMAKER DOSSIER & SCORECARD", fill=TEXT_MUTED, anchor="mm", font_size=20)
     
     # Photo Container
     photo_size = 400 if is_vertical else 340
@@ -187,7 +187,7 @@ def create_slide_1_intro(profile: CongressionalProfile, is_vertical: bool = True
     return img
 
 def create_slide_2_measurables(profile: CongressionalProfile, is_vertical: bool = True) -> Image.Image:
-    """Slide 2: NextGenStats Combine Measurables & Radar HUD."""
+    """Slide 2: Legislative Performance Indicators & Radar HUD."""
     width, height = (1080, 1920) if is_vertical else (1920, 1080)
     img = Image.new("RGBA", (width, height), BG_COLOR)
     draw = ImageDraw.Draw(img)
@@ -356,8 +356,8 @@ def create_slide_5_film_room(profile: CongressionalProfile, is_vertical: bool = 
     # Final Grade Sign-off
     gy = fy + 420
     draw.rounded_rectangle([60, gy, width - 60, gy + 160], radius=20, fill="#070a12", outline=ACCENT_GOLD, width=3)
-    draw.text((width // 2, gy + 50), f"FINAL DRAFT GRADE: {profile.scouting.draft_grade}", fill=ACCENT_GOLD, anchor="mm", font_size=36)
-    draw.text((width // 2, gy + 110), f"NEXTGEN STATS CONGRESSIONAL PROFILE • VERIFIED DATA", fill=TEXT_MUTED, anchor="mm", font_size=18)
+    draw.text((width // 2, gy + 50), f"FINAL LEGISLATIVE GRADE: {profile.scouting.draft_grade}", fill=ACCENT_GOLD, anchor="mm", font_size=36)
+    draw.text((width // 2, gy + 110), f"CONGRESS CIVIC ANALYTICS • OPEN METHODOLOGY", fill=TEXT_MUTED, anchor="mm", font_size=18)
 
     return img
 

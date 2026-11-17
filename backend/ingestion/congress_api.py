@@ -5,10 +5,11 @@ Integrates unitedstates/congress-legislators, Congress.gov API, and Voteview rol
 import json
 import logging
 import urllib.request
+import zlib
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 
-from backend.config import CACHE_DIR, CONGRESS_API_KEY, POLICY_CATEGORIES
+from backend.config import CACHE_DIR, DATA_DIR, CONGRESS_API_KEY, POLICY_CATEGORIES
 from backend.models import (
     MemberBio, 
     AffiliationData, 
@@ -21,6 +22,284 @@ from backend.models import (
 from backend.ingestion.vote_classifier import classify_vote
 
 logger = logging.getLogger(__name__)
+
+_ALL_MEMBERS_CACHE: Optional[List[Dict]] = None
+_VOTEVIEW_SESSIONS_CACHE: Optional[Dict[str, Any]] = None
+_HOUSE_FD_CACHE: Optional[Dict[str, Any]] = None
+_CONGRESS_BILLS_CACHE: Optional[Dict[str, Any]] = None
+_VOTEVIEW_PATH = CACHE_DIR / "voteview_member_sessions.json"
+_HOUSE_FD_PATH = CACHE_DIR / "house_fd_index.json"
+_CONGRESS_BILLS_PATH = CACHE_DIR / "congress_bills_cache.json"
+
+
+def reset_congress_caches() -> None:
+    global _ALL_MEMBERS_CACHE, _VOTEVIEW_SESSIONS_CACHE, _HOUSE_FD_CACHE, _CONGRESS_BILLS_CACHE
+    _ALL_MEMBERS_CACHE = None
+    _VOTEVIEW_SESSIONS_CACHE = None
+    _HOUSE_FD_CACHE = None
+    _CONGRESS_BILLS_CACHE = None
+    from backend.ingestion.ptr_parser import reset_ptr_cache
+    reset_ptr_cache()
+
+
+def _get_voteview_sessions() -> Dict[str, Any]:
+    global _VOTEVIEW_SESSIONS_CACHE
+    if _VOTEVIEW_SESSIONS_CACHE is None:
+        if _VOTEVIEW_PATH.exists():
+            try:
+                _VOTEVIEW_SESSIONS_CACHE = json.loads(_VOTEVIEW_PATH.read_text(encoding="utf-8")).get("sessions", {})
+            except Exception:
+                _VOTEVIEW_SESSIONS_CACHE = {}
+        else:
+            _VOTEVIEW_SESSIONS_CACHE = {}
+    return _VOTEVIEW_SESSIONS_CACHE
+
+
+def has_real_voteview_record(bioguide_id: str, timeframe: str = "career") -> bool:
+    sessions = _get_voteview_sessions()
+    tf = timeframe.lower().strip()
+    if tf in ("119", "119th", "2025", "2026"):
+        return bioguide_id in sessions.get("119", {})
+    if tf in ("118", "118th", "2023", "2024"):
+        return bioguide_id in sessions.get("118", {})
+    if tf in ("117", "117th", "2021", "2022"):
+        return bioguide_id in sessions.get("117", {})
+    if tf == "career":
+        return any(bioguide_id in sessions.get(c, {}) for c in ("119", "118", "117"))
+    return False
+
+
+def get_member_narrow_stats(bioguide_id: str, timeframe: str = "career") -> Optional[Dict[str, Any]]:
+    sessions = _get_voteview_sessions()
+    tf = timeframe.lower().strip()
+    keys = ["119", "118", "117"]
+    if tf in ("119", "119th", "2025", "2026"):
+        keys = ["119"]
+    elif tf in ("118", "118th", "2023", "2024"):
+        keys = ["118"]
+    elif tf in ("117", "117th", "2021", "2022"):
+        keys = ["117"]
+
+    matched = [sessions.get(k, {}).get(bioguide_id) for k in keys if bioguide_id in sessions.get(k, {})]
+    if not matched:
+        return None
+    n_tot = sum(s.get("narrow_total", 0) for s in matched)
+    n_att = sum(s.get("narrow_attended", 0) for s in matched)
+    if n_tot == 0:
+        return None
+    w_unity = sum(s.get("narrow_party_unity_pct", 90.0) * max(1, s.get("narrow_attended", 0)) for s in matched) / max(1, n_att)
+    return {
+        "narrow_total": n_tot,
+        "narrow_attended": n_att,
+        "narrow_party_unity_pct": round(w_unity, 1),
+    }
+
+
+def get_member_amendment_stats(bioguide_id: str, timeframe: str = "career") -> Optional[Dict[str, Any]]:
+    sessions = _get_voteview_sessions()
+    tf = timeframe.lower().strip()
+    keys = ["119", "118", "117"]
+    if tf in ("119", "119th", "2025", "2026"):
+        keys = ["119"]
+    elif tf in ("118", "118th", "2023", "2024"):
+        keys = ["118"]
+    elif tf in ("117", "117th", "2021", "2022"):
+        keys = ["117"]
+
+    matched = [sessions.get(k, {}).get(bioguide_id) for k in keys if bioguide_id in sessions.get(k, {})]
+    if not matched:
+        return None
+    a_tot = sum(s.get("amend_total", 0) for s in matched)
+    a_cast = sum(s.get("amend_cast", 0) for s in matched)
+    a_yes = sum(s.get("amend_yes", 0) for s in matched)
+    return {
+        "amend_total": a_tot,
+        "amend_cast": a_cast,
+        "amend_yes": a_yes,
+        "amend_participation_pct": round((a_cast / float(max(1, a_tot))) * 100.0, 1) if a_tot > 0 else 0.0,
+    }
+
+
+def get_member_house_fd(bio_dict: Dict[str, Any]) -> Dict[str, Any]:
+    global _HOUSE_FD_CACHE
+    if _HOUSE_FD_CACHE is None:
+        if _HOUSE_FD_PATH.exists():
+            try:
+                _HOUSE_FD_CACHE = json.loads(_HOUSE_FD_PATH.read_text(encoding="utf-8")).get("records", {})
+            except Exception:
+                _HOUSE_FD_CACHE = {}
+        else:
+            _HOUSE_FD_CACHE = {}
+
+    if (bio_dict.get("chamber") or "").lower() != "house":
+        return {"verified": False, "ptr_count": 0, "annual_fd_count": 0, "years": [], "ptr_docs": []}
+    st = (bio_dict.get("state") or "").upper()
+    dst = bio_dict.get("district") or 0
+    last = (bio_dict.get("last_name") or "").strip().lower()
+    rec = _HOUSE_FD_CACHE.get(f"{st}{dst:02d}|{last}")
+    if not rec:
+        for k, v in _HOUSE_FD_CACHE.items():
+            if k.startswith(f"{st}{dst:02d}|") and (last in k or v.get("last", "") in last):
+                rec = v
+                break
+    if not rec:
+        return {"verified": bool(_HOUSE_FD_CACHE), "ptr_count": 0, "annual_fd_count": 0, "years": [], "ptr_docs": []}
+
+    ptr_docs = sorted(rec.get("ptr_docs", []), key=lambda d: (d.get("year", 0), str(d.get("doc_id", ""))), reverse=True)
+    return {
+        "verified": True,
+        "ptr_count": int(rec.get("ptr_count", 0)),
+        "annual_fd_count": int(rec.get("annual_fd_count", 0)),
+        "years": rec.get("years", []),
+        "ptr_docs": ptr_docs,
+    }
+
+
+def get_member_congress_bills(bioguide_id: str, fetch_live: bool = False) -> Optional[Dict[str, Any]]:
+    """Fetch official sponsored/cosponsored counts from Congress.gov v3 API (supports CONGRESS_API_KEY or DEMO_KEY)."""
+    global _CONGRESS_BILLS_CACHE
+    if _CONGRESS_BILLS_CACHE is None:
+        if _CONGRESS_BILLS_PATH.exists():
+            try:
+                _CONGRESS_BILLS_CACHE = json.loads(_CONGRESS_BILLS_PATH.read_text(encoding="utf-8"))
+            except Exception:
+                _CONGRESS_BILLS_CACHE = {}
+        else:
+            _CONGRESS_BILLS_CACHE = {}
+
+    if bioguide_id in _CONGRESS_BILLS_CACHE:
+        return _CONGRESS_BILLS_CACHE[bioguide_id]
+
+    api_key = CONGRESS_API_KEY or "DEMO_KEY"
+    if not fetch_live:
+        return None
+
+    try:
+        mem_url = f"https://api.congress.gov/v3/member/{bioguide_id}?api_key={api_key}"
+        spon_url = f"https://api.congress.gov/v3/member/{bioguide_id}/sponsored-legislation?api_key={api_key}&limit=100"
+        req0 = urllib.request.Request(mem_url, headers={"User-Agent": "CongressCivicAnalytics/2.6"})
+        with urllib.request.urlopen(req0, timeout=4) as r0:
+            m_data = json.loads(r0.read().decode("utf-8")).get("member", {})
+        spon_count = int((m_data.get("sponsoredLegislation") or {}).get("count") or 0)
+        cospon_count = int((m_data.get("cosponsoredLegislation") or {}).get("count") or 0)
+
+        enacted_count = 0
+        try:
+            req1 = urllib.request.Request(spon_url, headers={"User-Agent": "CongressCivicAnalytics/2.6"})
+            with urllib.request.urlopen(req1, timeout=4) as r1:
+                s_data = json.loads(r1.read().decode("utf-8")).get("sponsoredLegislation", [])
+            enacted_count = sum(
+                1 for b in s_data
+                if "became public law" in ((b.get("latestAction") or {}).get("text") or "").lower()
+            )
+        except Exception:
+            pass
+
+        rec = {
+            "sponsored": spon_count,
+            "cosponsored": cospon_count,
+            "enacted": enacted_count,
+            "source": "Congress.gov v3 Official API",
+        }
+        _CONGRESS_BILLS_CACHE[bioguide_id] = rec
+        _CONGRESS_BILLS_PATH.write_text(json.dumps(_CONGRESS_BILLS_CACHE), encoding="utf-8")
+        return rec
+    except Exception as e:
+        logger.debug(f"Congress.gov API fetch skipped for {bioguide_id}: {e}")
+        return None
+
+
+def _build_voting_from_voteview(
+    sessions_list: List[Dict[str, Any]],
+    timeframe: str,
+    era_label: str,
+    fallback_dw: float,
+) -> VotingRecordSummary:
+    total_votes = sum(s["total_votes"] for s in sessions_list)
+    total_yes = sum(s["total_yes"] for s in sessions_list)
+    total_no = sum(s["total_no"] for s in sessions_list)
+    total_abstained = sum(s["total_abstained"] for s in sessions_list)
+    abstain_pct = round((total_abstained / float(max(1, total_votes))) * 100.0, 1)
+    attendance_pct = round(100.0 - abstain_pct, 1)
+
+    w_sum = sum(s["total_votes"] for s in sessions_list) or 1
+    party_unity = round(sum(s["party_unity_pct"] * s["total_votes"] for s in sessions_list) / w_sum, 1)
+    bipartisan = round(sum(s["bipartisanship_pct"] * s["total_votes"] for s in sessions_list) / w_sum, 1)
+    dw_nom = sessions_list[0].get("dw_nominate", fallback_dw)
+
+    agg_cats: Dict[str, List[int]] = {c: [0, 0, 0, 0] for c in POLICY_CATEGORIES}
+    for s in sessions_list:
+        for cat, st in s.get("category_breakdown", {}).items():
+            if cat not in agg_cats:
+                agg_cats[cat] = [0, 0, 0, 0]
+            agg_cats[cat][0] += st.get("total_votes", 0)
+            agg_cats[cat][1] += st.get("votes_yes", 0)
+            agg_cats[cat][2] += st.get("votes_no", 0)
+            agg_cats[cat][3] += st.get("votes_abstained", 0)
+
+    cat_breakdown = {
+        cat: CategoryVoteStat(
+            category=cat,
+            total_votes=tot,
+            votes_yes=vy,
+            votes_no=vn,
+            votes_abstained=va,
+            support_pct=round((vy / float(max(1, tot))) * 100.0, 1) if tot > 0 else 0.0,
+        )
+        for cat, (tot, vy, vn, va) in agg_cats.items()
+    }
+
+    notables: List[NotableVote] = []
+    seen_rc = set()
+    for s in sessions_list:
+        for nv in s.get("recent_votes", []):
+            rc_id = nv["roll_call_id"]
+            if rc_id in seen_rc:
+                continue
+            seen_rc.add(rc_id)
+            notables.append(NotableVote(**nv))
+            if len(notables) >= 8:
+                break
+        if len(notables) >= 8:
+            break
+
+    div_tot = sum(s.get("divided_votes_total", 0) for s in sessions_list)
+    div_miss = sum(s.get("divided_votes_missed", 0) for s in sessions_list)
+    rou_tot = sum(s.get("routine_votes_total", 0) for s in sessions_list)
+    rou_miss = sum(s.get("routine_votes_missed", 0) for s in sessions_list)
+    div_abs_pct = round((div_miss / float(max(1, div_tot))) * 100.0, 1) if div_tot > 0 else 0.0
+    rou_abs_pct = round((rou_miss / float(max(1, rou_tot))) * 100.0, 1) if rou_tot > 0 else 0.0
+
+    if div_abs_pct <= 2.5 and rou_abs_pct <= 2.5:
+        abs_label = "Clean / High Attendance Across All Roll Calls"
+    elif div_abs_pct > max(4.0, rou_abs_pct * 1.35):
+        abs_label = "Elevated Missed Contested / Party-Divided Votes"
+    else:
+        abs_label = "Absences Mostly Routine / Bipartisan Motions"
+
+    return VotingRecordSummary(
+        timeframe=timeframe,
+        era_label=era_label,
+        total_votes=total_votes,
+        total_yes=total_yes,
+        total_no=total_no,
+        total_abstained=total_abstained,
+        abstain_pct=abstain_pct,
+        attendance_pct=attendance_pct,
+        party_unity_pct=party_unity,
+        bipartisanship_pct=bipartisan,
+        dw_nominate_score=round(float(dw_nom), 3),
+        divided_votes_total=div_tot,
+        divided_votes_missed=div_miss,
+        divided_absence_pct=div_abs_pct,
+        routine_votes_total=rou_tot,
+        routine_votes_missed=rou_miss,
+        routine_absence_pct=rou_abs_pct,
+        absence_impact_label=abs_label,
+        category_breakdown=cat_breakdown,
+        recent_votes=notables,
+    )
+
 
 LEGISLATORS_CURRENT_URL = "https://raw.githubusercontent.com/unitedstates/congress-legislators/gh-pages/legislators-current.json"
 COMMITTEE_MEMBERSHIP_URL = "https://raw.githubusercontent.com/unitedstates/congress-legislators/gh-pages/committee-membership-current.json"
@@ -406,7 +685,7 @@ PRELOADED_MEMBERS = [
         "affiliations": {
             "committees": ["Senate Committee on Health, Education, Labor, and Pensions (Chair)", "Senate Committee on the Budget", "Senate Committee on Veterans' Affairs"],
             "subcommittees": ["Subcommittee on Primary Health and Retirement Security"],
-            "caucuses": ["Congressional Progressive Caucus (Founder)", "Senate Democratic Caucus (Allied)", "Senate Coal Caucus"],
+            "caucuses": ["Congressional Progressive Caucus (Founder)", "Senate Democratic Caucus (Allied)"],
             "leadership_pacs": ["Friends of Bernie Sanders"],
             "prior_organizations": ["Mayor of Burlington, Vermont"]
         },
@@ -708,13 +987,51 @@ ERA_ROLL_CALLS: Dict[str, List[Dict]] = {
             "result": "PASSED (357 - 70)",
             "dem_vote": "YES", "rep_vote": "YES"
         }
+    ],
+    "119th": [
+        {
+            "roll_call_id": "H-119-1-023",
+            "bill_number": "S. 5",
+            "bill_title": "Laken Riley Act (Border Detention & Enforcement Mandate)",
+            "category": "Immigration & Border Security",
+            "date": "2025-01-22",
+            "result": "PASSED (263 - 156)",
+            "dem_vote": "NO", "rep_vote": "YES"
+        },
+        {
+            "roll_call_id": "H-119-1-070",
+            "bill_number": "H.R. 1968",
+            "bill_title": "Full-Year Continuing Appropriations and Extensions Act, 2025",
+            "category": "Economy & Taxation",
+            "date": "2025-03-11",
+            "result": "PASSED (217 - 213)",
+            "dem_vote": "NO", "rep_vote": "YES"
+        },
+        {
+            "roll_call_id": "H-119-1-102",
+            "bill_number": "H.R. 22",
+            "bill_title": "SAVE Act (Safeguard American Voter Eligibility Act)",
+            "category": "Judiciary & Civil Rights",
+            "date": "2025-04-10",
+            "result": "PASSED (220 - 208)",
+            "dem_vote": "NO", "rep_vote": "YES"
+        },
+        {
+            "roll_call_id": "H-119-1-145",
+            "bill_number": "H.R. 1 (119th)",
+            "bill_title": "One Big Beautiful Bill Act (FY2025 Budget Reconciliation & Tax Extensions)",
+            "category": "Economy & Taxation",
+            "date": "2025-05-22",
+            "result": "PASSED (215 - 214)",
+            "dem_vote": "NO", "rep_vote": "YES"
+        }
     ]
 }
 
 def generate_member_voting_record(raw_data: Dict, timeframe: str = "career") -> VotingRecordSummary:
     """
     Generate categorized voting statistics and notable roll call votes for any requested timeframe.
-    Timeframe options: 'career', '2026', '2025', '2024', '2023', '118th', '117th', '2010s', '2000s', '1990s'.
+    Timeframe options: 'career', '119th', '118th', '117th', '116th', '2010s', '2000s', '1990s'.
     """
     stats = raw_data.get("stats", {})
     bio = raw_data["bio"]
@@ -722,159 +1039,224 @@ def generate_member_voting_record(raw_data: Dict, timeframe: str = "career") -> 
     bioguide = bio["bioguide_id"]
     first_elected = bio.get("first_elected", 2020)
     terms_served = bio.get("terms_served", 1)
-    
-    is_dem = party.lower().startswith("d")
-    is_rep = party.lower().startswith("r")
-    
+
     base_unity = stats.get("party_unity", 94.0)
     base_bipartisan = stats.get("bipartisanship", 18.0)
     base_attendance = stats.get("attendance", 98.0)
     base_dw = stats.get("dw_nominate", 0.0)
 
-    # Determine timeframe properties
+    is_dem = party.lower().startswith("d")
+    is_rep = party.lower().startswith("r")
+    is_ind = not is_dem and not is_rep
+    caucus_dem = is_dem or (is_ind and base_dw <= 0.05)
+
+    # Determine timeframe properties and check empirical Voteview records first
     tf_clean = timeframe.lower().strip()
+    vv_sessions = _get_voteview_sessions()
+
+    if tf_clean in ["119", "119th", "2025", "2026"] and bioguide in vv_sessions.get("119", {}):
+        return _build_voting_from_voteview(
+            [vv_sessions["119"][bioguide]],
+            timeframe,
+            "119th Congress (2025 - Present Active Session • Voteview Verified)",
+            base_dw,
+        )
+    elif tf_clean in ["118", "118th", "2023", "2024"]:
+        if first_elected <= 2024 and bioguide in vv_sessions.get("118", {}):
+            return _build_voting_from_voteview(
+                [vv_sessions["118"][bioguide]],
+                timeframe,
+                "118th Congress (2023 - 2025 • Voteview Verified)",
+                base_dw,
+            )
+    elif tf_clean in ["117", "117th", "2021", "2022"]:
+        if first_elected <= 2022 and bioguide in vv_sessions.get("117", {}):
+            return _build_voting_from_voteview(
+                [vv_sessions["117"][bioguide]],
+                timeframe,
+                "117th Congress (2021 - 2022 • Voteview Verified)",
+                base_dw,
+            )
+    elif tf_clean == "career":
+        avail = [vv_sessions.get(c, {}).get(bioguide) for c in ("119", "118", "117") if bioguide in vv_sessions.get(c, {})]
+        if avail:
+            lbl = f"Career Indexed Rolls ({first_elected} - Present, {terms_served} Terms)"
+            return _build_voting_from_voteview(avail, timeframe, lbl, base_dw)
+
     if tf_clean == "career":
         era_label = f"Career Total ({first_elected} - Present, {terms_served} Terms)"
         total_votes = max(320, terms_served * 650)
         party_unity = base_unity
         bipartisan = base_bipartisan
         attendance = base_attendance
-        
-        # Assemble career greatest hits tape
+
         active_roll_calls = []
         if first_elected <= 1999:
-            active_roll_calls.extend(ERA_ROLL_CALLS["1990s"][:3])
+            active_roll_calls.extend(ERA_ROLL_CALLS["1990s"][:2])
         if first_elected <= 2009:
-            active_roll_calls.extend(ERA_ROLL_CALLS["2000s"][:3])
+            active_roll_calls.extend(ERA_ROLL_CALLS["2000s"][:2])
         if first_elected <= 2019:
             active_roll_calls.extend(ERA_ROLL_CALLS["2010s"][:2])
         if first_elected <= 2022:
             active_roll_calls.extend(ERA_ROLL_CALLS["117th"][:2])
-        active_roll_calls.extend(ERA_ROLL_CALLS["118th"])
+        if first_elected <= 2024:
+            active_roll_calls.extend(ERA_ROLL_CALLS["118th"][:4])
+        active_roll_calls.extend(ERA_ROLL_CALLS["119th"])
     elif tf_clean in ["1990s", "1990"]:
         if first_elected > 1999:
-            era_label = f"1990s Era (Not in Congress • First Elected {first_elected})"
+            era_label = f"1990s Era (Not in Office • First Elected {first_elected})"
             total_votes = 0
-            party_unity = base_unity
-            bipartisan = base_bipartisan
-            attendance = base_attendance
-            active_roll_calls = ERA_ROLL_CALLS["1990s"]
+            party_unity = 0.0
+            bipartisan = 0.0
+            attendance = 0.0
+            active_roll_calls = []
         else:
             era_label = "1990s Era (103rd - 106th Congress, 1990 - 1999)"
-            total_votes = min(4200, (2000 - first_elected) * 600)
+            total_votes = min(4200, max(600, (2000 - first_elected) * 600))
             party_unity = round(max(75.0, base_unity - 4.5), 1)
             bipartisan = round(min(65.0, base_bipartisan + 12.0), 1)
-            attendance = 98.4
+            attendance = round(min(99.5, max(92.0, base_attendance + 0.4)), 1)
             active_roll_calls = ERA_ROLL_CALLS["1990s"]
     elif tf_clean in ["2000s", "2000"]:
         if first_elected > 2009:
-            era_label = f"2000s Era (Not in Congress • First Elected {first_elected})"
+            era_label = f"2000s Era (Not in Office • First Elected {first_elected})"
             total_votes = 0
-            party_unity = base_unity
-            bipartisan = base_bipartisan
-            attendance = base_attendance
-            active_roll_calls = ERA_ROLL_CALLS["2000s"]
+            party_unity = 0.0
+            bipartisan = 0.0
+            attendance = 0.0
+            active_roll_calls = []
         else:
             era_label = "2000s Era (107th - 111th Congress, 2000 - 2009)"
-            total_votes = min(5400, (2010 - max(2000, first_elected)) * 620)
+            total_votes = min(5400, max(620, (2010 - max(2000, first_elected)) * 620))
             party_unity = round(max(80.0, base_unity - 2.0), 1)
             bipartisan = round(min(55.0, base_bipartisan + 8.0), 1)
-            attendance = 98.1
+            attendance = round(min(99.5, max(92.0, base_attendance + 0.2)), 1)
             active_roll_calls = ERA_ROLL_CALLS["2000s"]
     elif tf_clean in ["2010s", "2010"]:
         if first_elected > 2019:
-            era_label = f"2010s Era (Not in Congress • First Elected {first_elected})"
+            era_label = f"2010s Era (Not in Office • First Elected {first_elected})"
             total_votes = 0
-            party_unity = base_unity
-            bipartisan = base_bipartisan
-            attendance = base_attendance
-            active_roll_calls = ERA_ROLL_CALLS["2010s"]
+            party_unity = 0.0
+            bipartisan = 0.0
+            attendance = 0.0
+            active_roll_calls = []
         else:
             era_label = "2010s Era (111th - 116th Congress, 2010 - 2018)"
-            total_votes = min(4800, (2019 - max(2010, first_elected)) * 640)
+            total_votes = min(4800, max(640, (2019 - max(2010, first_elected)) * 640))
             party_unity = round(min(99.0, base_unity + 1.5), 1)
             bipartisan = round(max(5.0, base_bipartisan - 3.0), 1)
-            attendance = 97.9
+            attendance = round(min(99.5, max(92.0, base_attendance - 0.1)), 1)
             active_roll_calls = ERA_ROLL_CALLS["2010s"]
     elif tf_clean in ["116", "116th", "2019", "2020"]:
         if first_elected > 2020:
             era_label = f"116th Congress (Not in Office • First Elected {first_elected})"
             total_votes = 0
-            party_unity = base_unity
-            bipartisan = base_bipartisan
-            attendance = base_attendance
-            active_roll_calls = ERA_ROLL_CALLS.get("2010s", [])
+            party_unity = 0.0
+            bipartisan = 0.0
+            attendance = 0.0
+            active_roll_calls = []
         else:
             era_label = "116th Congress (2019 - 2020 Session)"
             total_votes = 920
-            party_unity = round(max(70.0, min(99.0, base_unity - 1.2)), 1)
-            bipartisan = round(max(5.0, min(65.0, base_bipartisan + 3.5)), 1)
-            attendance = 98.2
+            party_unity = round(max(65.0, min(99.0, base_unity - 1.2)), 1)
+            bipartisan = round(max(5.0, min(70.0, base_bipartisan + 3.5)), 1)
+            attendance = round(min(99.8, max(91.0, base_attendance - 0.3)), 1)
             active_roll_calls = ERA_ROLL_CALLS.get("2010s", [])
     elif tf_clean in ["117", "117th", "2021", "2022"]:
         if first_elected > 2022:
             era_label = f"117th Congress (Not in Office • First Elected {first_elected})"
             total_votes = 0
-            party_unity = base_unity
-            bipartisan = base_bipartisan
-            attendance = base_attendance
-            active_roll_calls = ERA_ROLL_CALLS["117th"]
+            party_unity = 0.0
+            bipartisan = 0.0
+            attendance = 0.0
+            active_roll_calls = []
         else:
             era_label = "117th Congress (2021 - 2022 Session)"
             total_votes = 980
-            party_unity = round(min(99.5, base_unity + 2.0), 1)
-            bipartisan = round(base_bipartisan, 1)
-            attendance = 98.5
+            party_unity = round(min(99.5, base_unity + 1.8), 1)
+            bipartisan = round(max(5.0, min(75.0, base_bipartisan - 1.0)), 1)
+            attendance = round(min(99.8, max(91.0, base_attendance + 0.2)), 1)
             active_roll_calls = ERA_ROLL_CALLS["117th"]
-    elif tf_clean in ["118", "118th", "2023", "2024", "2025", "2026"]:
-        era_label = "118th Congress (2023 - 2026 Active Session)"
+    elif tf_clean in ["118", "118th", "2023", "2024"]:
+        if first_elected > 2024:
+            era_label = f"118th Congress (Not in Office • First Elected {first_elected})"
+            total_votes = 0
+            party_unity = 0.0
+            bipartisan = 0.0
+            attendance = 0.0
+            active_roll_calls = []
+        else:
+            era_label = "118th Congress (2023 - 2025 Session)"
+            total_votes = 1120
+            party_unity = round(base_unity, 1)
+            bipartisan = round(base_bipartisan, 1)
+            attendance = round(base_attendance, 1)
+            active_roll_calls = ERA_ROLL_CALLS["118th"]
+    elif tf_clean in ["119", "119th", "2025", "2026"]:
+        era_label = "119th Congress (2025 - Present Active Session)"
         total_votes = 640
-        party_unity = base_unity
-        bipartisan = base_bipartisan
-        attendance = base_attendance
-        active_roll_calls = ERA_ROLL_CALLS["118th"]
-    else: # Fallback career
+        party_unity = round(min(99.5, base_unity + 0.8), 1)
+        bipartisan = round(max(4.0, base_bipartisan - 1.5), 1)
+        attendance = round(base_attendance, 1)
+        active_roll_calls = ERA_ROLL_CALLS["119th"]
+    else:  # Fallback career
         era_label = f"Career Total ({first_elected} - Present, {terms_served} Terms)"
         total_votes = max(320, terms_served * 650)
         party_unity = base_unity
         bipartisan = base_bipartisan
         attendance = base_attendance
-        active_roll_calls = ERA_ROLL_CALLS["118th"]
+        active_roll_calls = ERA_ROLL_CALLS["118th"] + ERA_ROLL_CALLS["119th"]
 
     total_abstained = max(1, int(total_votes * ((100.0 - attendance) / 100.0))) if total_votes > 0 else 0
-    abstain_pct = round((total_abstained / float(max(1, total_votes))) * 100.0, 1)
-    
+    abstain_pct = round((total_abstained / float(max(1, total_votes))) * 100.0, 1) if total_votes > 0 else 0.0
+
     category_breakdowns: Dict[str, CategoryVoteStat] = {}
     running_yes = 0
     running_no = 0
-    
+
     for cat in POLICY_CATEGORIES:
-        total_cat_votes = max(1, int(total_votes / len(POLICY_CATEGORIES))) if total_votes > 0 else 25
+        if total_votes == 0:
+            category_breakdowns[cat] = CategoryVoteStat(
+                category=cat, total_votes=0, votes_yes=0, votes_no=0, votes_abstained=0, support_pct=0.0
+            )
+            continue
+
+        total_cat_votes = max(1, int(total_votes / len(POLICY_CATEGORIES)))
         cat_abstained = 1 if total_abstained > 5 else 0
-        
-        if cat in ["Defense & National Security", "Immigration & Border Security", "Energy & Environment", "Economy & Taxation"]:
-            if is_dem:
-                yes_pct = 0.35 if ("Border" in cat or "Energy" in cat) else 0.70
-            elif is_rep:
-                yes_pct = 0.90 if ("Border" in cat or "Energy" in cat or "Defense" in cat) else 0.75
+        ch = zlib.crc32(f"{bioguide}-{cat}-{tf_clean}".encode("utf-8"))
+        jitter = ((ch % 11) - 5) * 0.015  # deterministic +/- 7.5% member variation
+        dw_abs = min(1.0, abs(base_dw))
+
+        if cat == "Defense & National Security":
+            yes_pct = (0.58 + (1.0 - dw_abs) * 0.22) if caucus_dem else (0.86 if bioguide != "M001184" else 0.28)
+        elif cat == "Immigration & Border Security":
+            # Support = stricter border wall / enforcement mandates
+            yes_pct = (0.24 + (1.0 - dw_abs) * 0.28) if caucus_dem else 0.90
+        elif cat == "Energy & Environment":
+            # Support = Clean energy subsidies & environmental protections
+            yes_pct = 0.86 if caucus_dem else (0.28 + (1.0 - dw_abs) * 0.18)
+        elif cat == "Economy & Taxation":
+            # Bipartisan + economic packages (weighted evenly across chambers)
+            yes_pct = 0.72 + (0.08 if not is_ind else -0.05)
+        elif cat in ["Healthcare & Medicare", "Education & Labor", "Judiciary & Civil Rights", "Technology & AI / Privacy"]:
+            if caucus_dem:
+                yes_pct = 0.86 if cat != "Technology & AI / Privacy" else 0.78
             else:
-                yes_pct = 0.55 if "Defense" in cat else 0.65
-        elif cat in ["Healthcare & Medicare", "Education & Labor", "Technology & AI / Privacy", "Judiciary & Civil Rights"]:
-            if is_dem:
-                yes_pct = 0.88
-            elif is_rep:
-                yes_pct = 0.28 if ("Civil Rights" in cat or "Labor" in cat) else 0.42
-            else:
-                yes_pct = 0.82
+                yes_pct = 0.30 if ("Civil Rights" in cat or "Labor" in cat) else (0.38 if "Healthcare" in cat else 0.62)
+        elif cat == "Government Ethics & Spending":
+            # Support = fiscal accountability & oversight / transparency rules
+            yes_pct = 0.78 if caucus_dem else 0.80
         else:
-            yes_pct = 0.78
-            
-        yes_votes = int((total_cat_votes - cat_abstained) * yes_pct)
-        no_votes = (total_cat_votes - cat_abstained) - yes_votes
-        
+            yes_pct = 0.74
+
+        yes_pct = max(0.10, min(0.96, yes_pct + jitter))
+        avail_votes = max(1, total_cat_votes - cat_abstained)
+        yes_votes = int(round(avail_votes * yes_pct))
+        no_votes = max(0, avail_votes - yes_votes)
+
         running_yes += yes_votes
         running_no += no_votes
-        
+
         category_breakdowns[cat] = CategoryVoteStat(
             category=cat,
             total_votes=total_cat_votes,
@@ -883,45 +1265,52 @@ def generate_member_voting_record(raw_data: Dict, timeframe: str = "career") -> 
             votes_abstained=cat_abstained,
             support_pct=round((yes_votes / float(total_cat_votes)) * 100.0, 1)
         )
-        
+
     recent_votes: List[NotableVote] = []
-    for idx, lv in enumerate(active_roll_calls):
-        # Lawmaker specific votes
-        if bioguide == "O000172": # AOC
-            if lv.get("bill_number") in ["H.R. 8035", "H.R. 7521", "H.R. 3746", "H.R. 2", "H.R. 1", "H.R. 8070", "H.R. 26"]:
+    for lv in active_roll_calls:
+        party_maj = lv.get("dem_vote", "YES") if caucus_dem else lv.get("rep_vote", "YES")
+        if bioguide == "O000172":  # AOC
+            if lv.get("bill_number") in ["H.R. 8035", "H.R. 7521", "H.R. 3746", "H.R. 2", "H.R. 1", "H.R. 8070", "H.R. 26", "S. 5", "H.R. 1968", "H.R. 22", "H.R. 1 (119th)"]:
                 mv = "NO"
             else:
                 mv = "YES"
-        elif bioguide == "J000289": # Jim Jordan
-            if lv.get("bill_number") in ["H.R. 8035", "H.R. 3746", "H.R. 5860", "H.R. 1319", "H.R. 3684", "H.R. 5376"]:
+        elif bioguide == "J000289":  # Jim Jordan
+            if lv.get("bill_number") in ["H.R. 8035", "H.R. 3746", "H.R. 5860", "H.R. 1319", "H.R. 3684", "H.R. 5376", "H.R. 4346"]:
                 mv = "NO"
             elif is_rep:
-                mv = "YES"
+                mv = lv.get("rep_vote", "YES")
             else:
                 mv = "NO"
-        elif bioguide == "M001184": # Thomas Massie
-            if lv.get("bill_number") in ["H.R. 8035", "H.R. 7521", "H.R. 3746", "H.R. 5860", "H.R. 7024", "H.R. 3935", "H.R. 1319", "H.R. 3684"]:
+        elif bioguide == "M001184":  # Thomas Massie
+            if lv.get("bill_number") in ["H.R. 8035", "H.R. 7521", "H.R. 3746", "H.R. 5860", "H.R. 7024", "H.R. 3935", "H.R. 1319", "H.R. 3684", "H.R. 4346", "H.R. 1968", "H.R. 1 (119th)"]:
                 mv = "NO"
             else:
-                mv = "YES" if lv.get("bill_number") in ["H.R. 2", "H.R. 1", "H.R. 26"] else "NO"
-        elif bioguide == "P000197": # Nancy Pelosi
-            if lv.get("bill_number") in ["H.R. 3450", "H.R. 3734", "H.R. 3396", "H.J.Res. 114", "H.R. 1", "H.R. 2", "H.R. 8070"]:
-                mv = "NO" if lv.get("bill_number") in ["H.R. 3450", "H.R. 3734", "H.R. 3396", "H.J.Res. 114", "H.R. 2"] else "YES"
+                mv = "YES" if lv.get("bill_number") in ["H.R. 2", "H.R. 1", "H.R. 26", "S. 5", "H.R. 22"] else "NO"
+        elif bioguide == "P000197":  # Nancy Pelosi
+            if lv.get("bill_number") in ["H.R. 3450", "H.R. 3734", "H.R. 3396", "H.J.Res. 114", "H.R. 1", "H.R. 2", "H.R. 8070", "S. 5", "H.R. 1968", "H.R. 22", "H.R. 1 (119th)"]:
+                mv = "NO"
             else:
                 mv = "YES"
+        elif bioguide == "G000592":  # Jared Golden
+            if lv.get("bill_number") in ["H.R. 2", "S. 5", "H.R. 1968", "H.R. 22", "H.R. 8070"]:
+                mv = "YES"
+            elif lv.get("bill_number") in ["H.R. 1 (119th)", "H.R. 1"]:
+                mv = "NO"
+            else:
+                mv = party_maj
         else:
-            mv = lv.get("dem_vote", "YES") if is_dem else lv.get("rep_vote", "YES")
-            
+            mv = party_maj
+
         recent_votes.append(NotableVote(
             roll_call_id=lv["roll_call_id"],
             bill_number=lv.get("bill_number"),
             bill_title=lv["bill_title"],
             category=lv["category"],
             member_vote=mv,
-            party_majority_vote="YES",
+            party_majority_vote=party_maj,
             result=lv["result"],
             date=lv["date"],
-            is_party_split=False
+            is_party_split=(mv != party_maj)
         ))
 
     return VotingRecordSummary(
@@ -941,12 +1330,17 @@ def generate_member_voting_record(raw_data: Dict, timeframe: str = "career") -> 
     )
 
 def load_all_congress_members() -> List[Dict]:
-    """Load complete 537+ member roster from local cache or remote database."""
-    local_data_file = Path("data/all_members.json")
+    """Load complete member roster from hydrated data/all_members.json with in-memory caching."""
+    global _ALL_MEMBERS_CACHE
+    if _ALL_MEMBERS_CACHE is not None:
+        return _ALL_MEMBERS_CACHE
+
+    local_data_file = DATA_DIR / "all_members.json"
     if local_data_file.exists():
         try:
             with open(local_data_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                _ALL_MEMBERS_CACHE = json.load(f)
+                return _ALL_MEMBERS_CACHE
         except Exception as e:
             logger.warning(f"Error loading local data/all_members.json: {e}")
 
@@ -954,7 +1348,8 @@ def load_all_congress_members() -> List[Dict]:
     if cache_file.exists():
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                _ALL_MEMBERS_CACHE = json.load(f)
+                return _ALL_MEMBERS_CACHE
         except Exception as e:
             logger.warning(f"Failed reading cache: {e}")
 
@@ -1004,16 +1399,16 @@ def search_members(query: str) -> List[Dict[str, Any]]:
     return results
 
 def get_member_raw_data(bioguide_id: str) -> Optional[Dict]:
-    """Retrieve full raw profile and affiliations for any Bioguide ID in Congress."""
-    for pm in PRELOADED_MEMBERS:
-        if pm["bio"]["bioguide_id"] == bioguide_id:
-            return pm
-            
+    """Retrieve full raw profile and affiliations for any Bioguide ID in Congress (prioritizing hydrated live roster)."""
     all_members = load_all_congress_members()
     for m in all_members:
         if m.get("bio", {}).get("bioguide_id") == bioguide_id:
             return m
-            
+
+    for pm in PRELOADED_MEMBERS:
+        if pm["bio"]["bioguide_id"] == bioguide_id:
+            return pm
+
     return None
 
 CATEGORY_BILL_DATABASE: Dict[str, List[Dict]] = {
@@ -1377,6 +1772,74 @@ CATEGORY_BILL_DATABASE: Dict[str, List[Dict]] = {
             "district_and_sector_impact": "Guarantees full federal rights, survivorship benefits, and legal recognition for millions of married couples nationwide.",
             "significance_level": "LANDMARK"
         }
+    ],
+    "Agriculture & Rural Development": [
+        {
+            "bill_number": "H.R. 2 (2018)",
+            "bill_title": "Agriculture Improvement Act (Federal Farm Bill & SNAP Nutrition)",
+            "date": "2018-12-12",
+            "result": "PASSED (369 - 47)",
+            "dem_vote": "YES", "rep_vote": "YES",
+            "plain_english_summary": "Multi-year reauthorization of federal crop insurance, agricultural conservation grants, rural broadband development, and Supplemental Nutrition Assistance Program (SNAP) food security allocations.",
+            "key_provisions": [
+                "Reauthorized federal crop insurance subsidies and commodity price loss coverage.",
+                "Funded rural broadband expansion and clean drinking water systems.",
+                "Maintained SNAP nutrition benefits without strict expanded work-hour cutoffs."
+            ],
+            "district_and_sector_impact": "Sustains farm solvency in rural agricultural districts and food security for low-income households.",
+            "significance_level": "LANDMARK"
+        }
+    ],
+    "Education & Labor": [
+        {
+            "bill_number": "H.R. 842",
+            "bill_title": "Protecting the Right to Organize (PRO) Act",
+            "date": "2021-03-09",
+            "result": "PASSED (225 - 206)",
+            "dem_vote": "YES", "rep_vote": "NO",
+            "plain_english_summary": "Expands worker collective bargaining rights, strengthens National Labor Relations Board (NLRB) enforcement penalties, and overrides state right-to-work restrictions on union dues.",
+            "key_provisions": [
+                "Authorizes financial penalties against employers terminating union organizers.",
+                "Bans mandatory captive-audience anti-union workplace meetings.",
+                "Expands joint-employer and independent contractor employee classifications."
+            ],
+            "district_and_sector_impact": "Expands union organizing leverage across industrial, healthcare, and service sector workforces.",
+            "significance_level": "LANDMARK"
+        }
+    ],
+    "Foreign Affairs & Trade": [
+        {
+            "bill_number": "H.R. 5430",
+            "bill_title": "United States-Mexico-Canada Agreement (USMCA) Implementation Act",
+            "date": "2019-12-19",
+            "result": "PASSED (385 - 41)",
+            "dem_vote": "YES", "rep_vote": "YES",
+            "plain_english_summary": "Replaced NAFTA with updated North American trade rules requiring higher regional auto content, strengthened dairy access, and enforceable labor wage standards.",
+            "key_provisions": [
+                "Mandated 75% North American automotive regional value content (up from 62.5%).",
+                "Required 40-45% of auto parts to be made by workers earning at least $16/hour.",
+                "Added rapid-response cross-border factory labor inspection panels."
+            ],
+            "district_and_sector_impact": "Directly shapes automotive supply chains, dairy/agricultural exports, and manufacturing competitiveness.",
+            "significance_level": "LANDMARK"
+        }
+    ],
+    "Government Ethics & Spending": [
+        {
+            "bill_number": "H.R. 7888",
+            "bill_title": "Reforming Intelligence and Securing America Act (FISA Section 702)",
+            "date": "2024-04-12",
+            "result": "PASSED (273 - 147)",
+            "dem_vote": "YES", "rep_vote": "YES",
+            "plain_english_summary": "Reauthorized Foreign Intelligence Surveillance Act (FISA) Section 702 warrantless electronic collection authorities for two years while adding FBI query audit safeguards.",
+            "key_provisions": [
+                "Extended FISA Section 702 foreign intelligence collection authority through April 2026.",
+                "Mandated supervisor sign-off and audit logs before FBI agents query US person terms.",
+                "Rejected an amendment requiring a probable-cause warrant for all US person queries (212-212 tie)."
+            ],
+            "district_and_sector_impact": "Governs constitutional Fourth Amendment digital privacy protections and national intelligence counterterrorism authorities.",
+            "significance_level": "LANDMARK"
+        }
     ]
 }
 
@@ -1391,6 +1854,8 @@ def get_category_deep_dive_bills(bioguide_id: str, category_name: str, timeframe
     bio_dict = raw["bio"]
     member_name = bio_dict.get("full_name", "Member of Congress")
     party = bio_dict.get("party", "Democrat")
+    dw_nom = raw.get("stats", {}).get("dw_nominate", 0.0)
+    caucus_dem = party == "Democrat" or (party == "Independent" and dw_nom <= 0.05)
     
     # Retrieve base bills for category or default fallback
     base_bills = CATEGORY_BILL_DATABASE.get(category_name, CATEGORY_BILL_DATABASE.get("Economy & Taxation", []))
@@ -1400,26 +1865,24 @@ def get_category_deep_dive_bills(bioguide_id: str, category_name: str, timeframe
     no_count = 0
     abstain_count = 0
     
-    h = abs(hash(f"{bioguide_id}-{category_name}"))
-    
-    for idx, b in enumerate(base_bills):
-        # Determine vote based on party and known member overrides
-        if party == "Democrat":
-            vote = b.get("dem_vote", "YES")
-        elif party == "Republican":
-            vote = b.get("rep_vote", "NO")
-        else:
-            vote = "YES" if (idx % 2 == 0) else "NO"
+    for b in base_bills:
+        party_maj = b.get("dem_vote" if caucus_dem else "rep_vote", "YES")
+        vote = party_maj
             
         # Specific high-profile maverick overrides
-        if bioguide_id == "M001184" and "Debt Ceiling" in b["bill_title"]: # Massie
-            vote = "NO"
-        elif bioguide_id == "O000172" and "Defense Authorization" in b["bill_title"]: # AOC
-            vote = "NO"
-        elif bioguide_id == "G000592" and "Border" in b["bill_title"]: # Golden
+        if bioguide_id == "M001184":
+            if any(k in b["bill_title"] for k in ["Debt Ceiling", "CHIPS", "Ukraine", "FISA", "Infrastructure", "Rescue Plan", "FAA"]):
+                vote = "NO"
+        elif bioguide_id == "O000172":
+            if any(k in b["bill_title"] for k in ["Defense Authorization", "Ukraine", "TikTok", "Debt Ceiling", "Border", "Energy Permitting"]):
+                vote = "NO"
+        elif bioguide_id == "J000289":
+            if any(k in b["bill_title"] for k in ["Debt Ceiling", "CHIPS", "Ukraine", "Rescue Plan", "Infrastructure", "Medicare Drug"]):
+                vote = "NO"
+        elif bioguide_id == "G000592" and "Border" in b["bill_title"]:
             vote = "YES"
             
-        is_split = (party == "Democrat" and vote != b.get("dem_vote", "YES")) or (party == "Republican" and vote != b.get("rep_vote", "NO"))
+        is_split = (vote != party_maj)
         
         if vote == "YES":
             yes_count += 1
@@ -1435,7 +1898,7 @@ def get_category_deep_dive_bills(bioguide_id: str, category_name: str, timeframe
             date=b["date"],
             result=b["result"],
             member_vote=vote,
-            party_majority_vote=b.get("dem_vote" if party == "Democrat" else "rep_vote", "YES"),
+            party_majority_vote=party_maj,
             is_party_split=is_split,
             plain_english_summary=b["plain_english_summary"],
             key_provisions=b["key_provisions"],

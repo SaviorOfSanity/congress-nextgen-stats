@@ -63,6 +63,13 @@ class VotingRecordSummary(BaseModel):
     party_unity_pct: float = 90.0
     bipartisanship_pct: float = 10.0
     dw_nominate_score: float = 0.0 # Ideology dimension 1 (-1.0 liberal to +1.0 conservative)
+    divided_votes_total: int = 0
+    divided_votes_missed: int = 0
+    divided_absence_pct: float = 0.0
+    routine_votes_total: int = 0
+    routine_votes_missed: int = 0
+    routine_absence_pct: float = 0.0
+    absence_impact_label: str = "Clean Attendance"
     category_breakdown: Dict[str, CategoryVoteStat] = Field(default_factory=dict)
     recent_votes: List[NotableVote] = Field(default_factory=list)
 
@@ -165,6 +172,14 @@ class CampaignFinanceSummary(BaseModel):
     pac_contributions_pct: float = 0.0
     small_individual_pct: float = 0.0
     large_individual_pct: float = 0.0
+    cash_on_hand: Optional[float] = None
+    debts_owed: Optional[float] = None
+    in_state_funding_pct: float = 55.0
+    out_of_state_funding_pct: float = 45.0
+    in_state_usd: Optional[float] = None
+    out_of_state_usd: Optional[float] = None
+    fundraising_geo_source: str = "Estimated Baseline"
+    data_source: str = "Deterministic Baseline"
     top_donor_sectors: List[DonorSector] = Field(default_factory=list)
     top_donors: List[str] = Field(default_factory=list)
 
@@ -225,6 +240,11 @@ class StockTradingProfile(BaseModel):
     committee_conflict_index: float # 0 - 100 (High = trades heavily in sectors regulated by committee)
     conflict_status: str # "Low Conflict", "Moderate Sector Overlap", "High Committee Jurisdiction Overlap"
     conflict_summary: str
+    verified_ptr_filings_count: int = 0
+    verified_fd_filings_count: int = 0
+    late_ptr_filings_count: int = 0
+    parsed_ptr_doc_ids: List[str] = Field(default_factory=list)
+    filing_source: str = "Baseline Model"
     flagged_trades: List[FlaggedStockTrade] = Field(default_factory=list)
 
 class CareerProgressionPoint(BaseModel):
@@ -243,6 +263,14 @@ class CareerProgression(BaseModel):
 # -------------------------------------------------------------
 # LEGISLATIVE PIPELINE & EARMARKS OUTPUT SCHEMAS
 # -------------------------------------------------------------
+class EarmarkDonorOverlapItem(BaseModel):
+    project_category: str
+    earmark_millions: float
+    overlapping_donor_sector: str
+    donor_sector_amount_usd: float
+    risk_flag: str # "CROSSWALK REVIEW", "LOW OVERLAP", "ZERO CORPORATE OVERLAP"
+    details: str
+
 class LegislativePipelineStats(BaseModel):
     bills_sponsored_count: int = 14
     bills_cosponsored_count: int = 168
@@ -251,6 +279,12 @@ class LegislativePipelineStats(BaseModel):
     earmarks_secured_millions: float = 24.5
     earmarks_summary: str = "Secured community project funding for clean water treatment facilities, community healthcare clinics, and STEM education laboratories."
     oversight_hearing_attendance_pct: float = 94.0
+    amendment_rollcalls_analyzed: int = 0
+    amendments_supported_count: int = 0
+    amendment_participation_pct: float = 0.0
+    sponsorship_source: str = "Baseline Estimate"
+    earmark_conflict_status: str = "CLEAN / LOW DONOR OVERLAP"
+    earmark_donor_crosswalk: List[EarmarkDonorOverlapItem] = Field(default_factory=list)
 
 class ScoutingCard(BaseModel):
     draft_grade: str # Legislative Effectiveness Rating: "A+", "A", "A-", "B+", "B", "C+", etc.
@@ -395,6 +429,25 @@ class InstitutionalWorkplaceMetrics(BaseModel):
     amendment_adoption_rate_pct: float = 68.0
     tenure_adjusted_productivity_score: float = 8.5
 
+class IdeologyVsDistrictCheck(BaseModel):
+    dw_nominate_score: float = 0.0
+    party_lean_label: str = "Centrist"
+    party_lean_pct: float = 50.0  # 0 (Far Left Blue) .. 50 (Center White) .. 100 (Far Right Red)
+    district_pvi: str = "EVEN"
+    district_lean_pct: float = 50.0
+    ideology_gap_points: float = 0.0
+    alignment_label: str = "District-Matched Ideology"
+    assessment: str = "Aligned with district partisan baseline."
+
+class DataProvenanceSummary(BaseModel):
+    roster_and_committees: str
+    voting_and_ideology: str
+    campaign_finance: str
+    demographics: str
+    stock_and_ethics: str
+    rhetoric_and_family: str
+    is_non_voting_delegate: bool = False
+
 class CongressionalProfile(BaseModel):
     bio: MemberBio
     affiliations: AffiliationData
@@ -417,6 +470,8 @@ class CongressionalProfile(BaseModel):
     rhetoric_audits: List[RhetoricVsRealityAudit] = Field(default_factory=list)
     challenger_preview: Optional[ChallengerMatchup] = None
     scouting: ScoutingCard
+    ideology_check: IdeologyVsDistrictCheck = Field(default_factory=IdeologyVsDistrictCheck)
+    data_provenance: Optional[DataProvenanceSummary] = None
     last_updated: str
 
 # -------------------------------------------------------------
@@ -486,6 +541,7 @@ class LeaderboardEntry(BaseModel):
     rank: int
     draft_grade: str # Legislative Rating
     draft_archetype: str # Governance Archetype
+    dw_nominate: float = 0.0
 
 class CategoryLeaderboard(BaseModel):
     category_id: str
@@ -625,6 +681,13 @@ class PartyRankingEntry(BaseModel):
     staff_turnover_pct: float = 24.0
     dark_money_millions: float = 1.2
     spousal_conflict_label: str = "CLEAN"
+    dw_nominate: float = 0.0
+    party_lean_label: str = "Centrist"
+    is_non_voting_delegate: bool = False
+    cash_on_hand_millions: float = 0.0
+    out_of_state_funding_pct: float = 45.0
+    divided_absence_pct: float = 0.0
+    verified_ptr_filings: int = 0
 
 class PartyRankingsResponse(BaseModel):
     total_members_count: int

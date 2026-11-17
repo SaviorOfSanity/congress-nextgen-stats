@@ -1,17 +1,22 @@
 ﻿services:
-  congress-nextgen-stats:
+  congress-civic-analytics:
     build: .
-    container_name: congress-nextgen-stats
+    container_name: congress-civic-analytics
     restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       # Persist generated videos and cards on the host
       - ./output:/app/output
-      # Optional: persist scraped/cached roster data
+      # Persist live-synced roll calls, disclosures, and roster caches
       - ./data:/app/data
     environment:
       - PORT=8000
+      - CONGRESS_API_KEY=${CONGRESS_API_KEY:-}
+      - FEC_API_KEY=${FEC_API_KEY:-}
+      - CENSUS_API_KEY=${CENSUS_API_KEY:-}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
     logging:
       driver: "json-file"
       options:

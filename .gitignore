@@ -13,6 +13,12 @@ __pycache__/
 *.mp3
 *.wav
 
+# Environment secrets & runtime live-sync caches
+.env
+.env.*
+!.env.example
+data/cache/
+
 # Output media / rendered cards & videos
 output/
 !output/.gitkeep

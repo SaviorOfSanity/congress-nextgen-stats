@@ -1,5 +1,5 @@
 """
-Command Line Interface (CLI) for Congressional NextGenStats Engine
+Command Line Interface (CLI) for Congressional Civic Analytics Engine
 """
 import sys
 import argparse
@@ -40,7 +40,7 @@ def cmd_scout(args):
     fn = profile.finance
 
     print("\n" + "═" * 70)
-    print(f" ★ CONGRESSIONAL NEXTGENSTATS DRAFT SCOUTING REPORT ★")
+    print(f" ★ CONGRESSIONAL CIVIC ANALYTICS DOSSIER REPORT ★")
     print("═" * 70)
     print(f" PROSPECT: {bio.full_name.upper()} ({bio.party[0]}-{c.district_code})")
     print(f" CHAMBER:  {bio.chamber.upper()} OF REPRESENTATIVES | TERMS SERVED: {bio.terms_served}")
@@ -79,11 +79,11 @@ def cmd_generate_video(args):
 def cmd_serve(args):
     """Start local web dashboard server."""
     import uvicorn
-    print(f"\nStarting Congressional NextGenStats Web Dashboard on http://{args.host}:{args.port}")
+    print(f"\nStarting Congressional Civic Analytics Web Dashboard on http://{args.host}:{args.port}")
     uvicorn.run("backend.server:app", host=args.host, port=args.port, reload=False)
 
 def main():
-    parser = argparse.ArgumentParser(description="Congressional NextGenStats & Scouting Engine")
+    parser = argparse.ArgumentParser(description="Congressional Civic Analytics & Scouting Engine")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Search
